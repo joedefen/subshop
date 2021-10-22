@@ -1,0 +1,1525 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Gather/Sync SRT files for TV shows / seasons / episodes.
+"""
+# pylint: disable=invalid-name,broad-except,too-many-instance-attributes
+# pylint: disable=no-else-return,too-many-branches,too-many-nested-blocks
+# pylint: disable=import-outside-toplevel,multiple-imports
+# pylint: disable=too-many-lines
+# pylint: disable=consider-using-f-string
+
+import os
+import sys
+import argparse
+import re
+import time
+import atexit
+import traceback
+import shutil
+import shlex
+import random
+
+from ruamel.yaml import YAML
+import pysigset
+from LibGen.DataStore import DataStore
+from LibGen.CustLogger import CustLogger as lg, parse_mixed_args
+from LibGen.YamlDump import yaml_dump
+from LibSub import ConfigSubshop
+from LibSub.SubCache import SubCache
+from LibSub.VideoParser import VideoParser, VideoFinder
+from LibSub.VideoMover import VideoMover
+from LibSub.SubFixer import CaptionList, CaptionListAnalyzer, SubFixer
+from LibSub.SubDownloader import SubDownloader
+import LibSub.SubShopDirs as ssd
+import LibGen.ToolChest as tc
+
+yaml = YAML(typ='safe')
+yaml.default_flow_style = False
+
+class DownloadsDB(DataStore):
+    """
+    Specialized DataStore for download timestamps
+    NOTE: this database can be regenerated if corrupted.
+    """
+    singleton = None
+    def __init__(self):
+        """TBD"""
+        DataStore.__init__(self, filename='sub_downloads.yaml',
+                storedir=ssd.cache_d, autoflush=False, warn_if_corrupt=True)
+        self.dirty_cnt = 0
+        self.timestamps = None  # list of timestamps of downloads in last 24hrs
+        assert not DownloadsDB.singleton, "created two DownloadsDB"
+        DownloadsDB.singleton = self
+        atexit.register(DownloadsDB.commit)
+
+    ################################################
+    ####
+    #### DOWNLOAD QUOTA METHODS
+    ####
+    ################################################
+
+    def print_status(self):
+        """Print remaining download allowance (roughly)."""
+        def secs_str(seconds):
+            seconds = int(round(seconds))
+            return '{}:{:02d}:{:02d}'.format(seconds // 3660,
+                    (seconds % 3600) // 60, seconds % 60)
+
+        msg = '\nSUBTITLE ALLOWANCE: ~{}/200 remaining today{}'.format(
+                200 - self.get_day_count(),
+                '; allowance schedule:\n   ' if self.timestamps else '')
+        now = time.time()
+        for cnt in (1, 10, 20, 40, 80):
+            if len(self.timestamps) < cnt:
+                break
+            msg += '  +{} in {}'.format(cnt,
+                    secs_str((self.timestamps[cnt-1] + 24*3600 - now)))
+        lg.pr(msg)
+
+    def get_day_count(self):
+        """Get the number of timestamps in the last day."""
+        if self.timestamps is None:
+            self.timestamps = self.get('timestamps', [])
+            # lg.db('loaded', len(self.timestamps), 'timestamps')
+        return self.prune_timestamps()
+
+    def get_recent_count(self, hours):
+        """Returns the number of download timestamps within so many hours"""
+        self.get_day_count()
+        self.prune_timestamps()
+        cnt, floor = 0, int(time.time()) - hours*3600
+        for timestamp in self.timestamps:
+            cnt += 1 if timestamp >= floor else 0
+        return cnt
+
+    def get_wait_time(self, til_under):
+        """Get amount of time to wait until below given 24 hour download count."""
+        cnt = self.get_day_count()
+        if cnt < til_under:
+            return 0
+        timestamp = self.timestamps[-til_under]
+        return int((timestamp + 24*60*60 + 1) - time.time())
+
+    def prune_timestamps(self):
+        """TBD"""
+        floor = int(time.time()) - 24*3600
+        for idx in range(len(self.timestamps)-1, -1, -1):
+            if self.timestamps[idx] < floor:
+                self.timestamps.pop(idx)
+        return len(self.timestamps)
+
+    def add_timestamp(self):
+        """TBD"""
+        day_cnt = self.get_day_count()
+        self.timestamps.append(int(time.time()))
+        self.dirty_cnt += 1
+        return day_cnt + 1
+
+
+    @staticmethod
+    def commit():
+        """Write the downloads database to disk (presumably at exit)."""
+        with pysigset.suspended_signals(*tc.COMMON_SIGS):
+            downdb = DownloadsDB.singleton
+            # lg.db('DownloadsDB.commit(): called')
+            if downdb and downdb.timestamps and downdb.dirty_cnt:
+                # lg.db('DownloadsDB: dirty_cnt:', downdb.dirty_cnt, len(downdb.timestamps))
+                downdb.prune_timestamps()
+                downdb.put('timestamps', downdb.timestamps)
+                downdb.flush(force=True)
+                downdb.dirty_cnt = 0
+            if downdb:
+                downdb.print_status()
+
+class TodoDB(DataStore):
+    """
+    Specialized DataStore for TODO items.
+    NOTE: this database can be regenerated if corrupted.
+    """
+    singleton = None
+    def __init__(self):
+        """TBD"""
+        DataStore.__init__(self, filename='todo.yaml', autoflush=False,
+                storedir=ssd.cache_d, warn_if_corrupt=True)
+        self.dirty_cnt = 0
+        self.todos = None  # lists of todos by category
+        assert not TodoDB.singleton, "created two TodoDBs"
+        TodoDB.singleton = self
+        atexit.register(TodoDB.commit)
+
+    def get_todos(self):
+        """Load existings todos into memory."""
+        if self.todos is None:
+            self.todos = self.get('todos', {})
+        return self.todos
+
+    def purge_video(self, video):
+        """Purge a video from whatever list(s) it may be on.
+        Return True if found else False"""
+        self.get_todos()
+        found = False
+        for cat in SubShop.todo_cats:
+            videos = self.todos.get(cat, [])
+            try:
+                videos.remove(video)
+                self.mark_dirty()
+                found = True
+            except ValueError:
+                pass
+        return found
+
+    def mark_dirty(self):
+        """Make the todo write pending."""
+        if self.todos:
+            self.dirty_cnt += 1
+
+    def finalize(self):
+        """Prepare the 'raw' todo list for writing to disk."""
+        if self.todos:
+            self.todos['counts'] = {}
+            limit = max(SubShop.params.todo_params.per_list_limit, 20)
+            for cat in SubShop.todo_cats:
+                videos = self.todos.get(cat, [])
+                self.todos['counts'][cat] = len(videos)
+                if len(videos) > limit:
+                    self.todos[cat] = sorted(random.sample(videos, limit))
+
+    @staticmethod
+    def commit():
+        """Write the TODOs database to disk (presumably at exit)."""
+        with pysigset.suspended_signals(*tc.COMMON_SIGS):
+            tdb = TodoDB.singleton
+            # lg.info('TodoDB.commit(): called')
+            if tdb and tdb.todos and tdb.dirty_cnt:
+                tdb.finalize()
+                tdb.put('todos', tdb.todos)
+                tdb.flush(force=True)
+                tdb.dirty_cnt = 0
+
+class SubShop():
+    """TBD"""
+    # pylint: disable=too-many-public-methods
+    singleton = None
+    downloads_db = None
+    todo_db = None
+    todo_cats = ('vip-dos', 'vip-ref-dos', 'dos', 'ref-dos', 'redos', 'defer-dos', 'defer-redos')
+    subcmds =('run', 'dos', 'redos', 'sync', 'anal', 'zap', 'ref', 'imdb',
+              'install', 'stat', 'tvreport', 'ignore', 'unignore', 'delay',
+              'grep', 'parse', 'todo', 'search', 'dirs')
+    params = ConfigSubshop.get_params()
+
+    def parse_args(self, args=None):
+        """Argument parser."""
+        sys.argv[0] = f'{os.path.basename(sys.argv[0])} {self.cmd}'
+        parser = argparse.ArgumentParser()
+        if self.cmd in ('delay', ):
+            parser.add_argument('-D', '--delay-secs', type=float, default=0.0,
+                help='amount to delay subs (seconds if -50 < amt < 50 else ms)')
+
+        if self.cmd in ('dos', 'grep'):
+            parser.add_argument('-f', '--force', action='store_true',
+                help='force removing/replacing existing .srt')
+
+        if self.cmd in ('ref'):
+            parser.add_argument('-F', '--ignore-internal', action='store_true',
+                    help='ignore the presence of internal subtitles')
+        if self.cmd in ('grep', ):
+            parser.add_argument('-g', '--grep', default=None,
+                    help = "specify regex to 'grep'")
+            parser.add_argument('-G', '--grep-regexes', action="store_true",
+                    help = "GREP configured regexes (may use -g{pat} too)")
+        if self.cmd in ('grep', 'dos', 'redos'):  # download()
+            parser.add_argument('-i', '--interactive', action='store_true',
+                help='pick whether to remove ads' if self.cmd == 'grep'
+                    else 'manually pick best match (rather than automatic)')
+        if self.cmd in ('dos', 'redos'): # download()
+            parser.add_argument('-I', '--imdb', help='search by IMDB ID')
+            parser.add_argument('-W', '--wait', action='store_true',
+                        help='wait indefinitely if blocked')
+        if self.cmd in ('ref', 'dos', 'redos'):
+            parser.add_argument('--todo', action='store_true',
+                                help='get targets from todo list')
+            parser.add_argument('-T', '--TODO', dest='todo_cat',
+                                choices=SubShop.todo_cats, default=None,
+                                help='set targets from a specific todo list')
+        if self.cmd in ('todo', 'sync', 'redos', 'stat', 'anal'):
+            parser.add_argument('-m', '--min-score', type=int, default=None,
+                    help='select videos with at least minimum subt score')
+            parser.add_argument('-M', '--max-score', type=int, default=None,
+                    help='select videos with at most maximum subt score')
+        if self.cmd not in ('tvreport', 'install'):
+            parser.add_argument('-o', '--only', default=None, choices=('tv', 'movie'),
+                    help='select only for videos under tv or movie roots')
+            parser.add_argument('-O', '--one', action='store_false', dest='every',
+                    help='when searching title, act on every match not just first')
+            parser.add_argument('-p', '--use-plex', action='store_true',
+                    help='use Plex for searches (if configured)')
+            parser.add_argument('-P', '--avoid_plex', action='store_true',
+                    help='do NOT use Plex for searches')
+            parser.add_argument('-q', '--quota', type=int, default=None,
+                    help='limit: 0=force, or -{stop-rem-quota}, +{stop-cnt}')
+            parser.add_argument('-s', '--show-skips', action='store_true',
+                    help='force show skipped targets and why')
+        if self.cmd not in ('tvreport', 'parse', 'grep'):
+            parser.add_argument('-n', '--dry-run', action='store_true',
+                            help='only show what would be done')
+        parser.add_argument('-v', '--verbose', action='store_true', help='report extra info')
+        parser.add_argument('-V', '--log-level', choices=lg.choices,
+            default='INFO', help='set logging/verbosity level [dflt=INFO]')
+        parser.add_argument('targets', nargs='*',
+                help='{show-name} [{sN|sNeM|NxM}] OR {videofile|videodir}...')
+
+        opts = self.opts = parse_mixed_args(parser, args)
+
+        for attr in ('todo', 'todo_cat', 'min_score', 'max_score', 'quota'):
+            if not hasattr(opts, attr):
+                setattr(opts, attr, None)
+        for attr in ('ignore_internal', 'interactive', 'dry_run', 'use_plex',
+                'avoid_plex'):
+            if not hasattr(opts, attr):
+                setattr(opts, attr, False)
+        for attr in ('every', ):
+            if not hasattr(opts, attr):
+                setattr(opts, attr, True)
+
+        lg.setup(level=opts.log_level, lgfile=None if opts.dry_run
+                or self.cmd == 'anal' else ssd.log_d + '/subshop.txt')
+        if opts.quota is None:
+            opts.quota = -40 if opts.todo else 0
+        if opts.todo:
+            opts.wait = True
+
+        if SubShop.singleton is None:
+            SubShop.singleton = self
+        if SubShop.downloads_db is None and self.cmd in ('dos', 'redos'):
+            SubShop.downloads_db = DownloadsDB()
+        if SubShop.todo_db is None and self.cmd in ('todo', ):
+            SubShop.todo_db = TodoDB()
+
+        if opts.min_score is None:
+            opts.min_score = SubShop.params.todo_params.min_score if self.cmd == 'todo' else -1
+        if opts.max_score is None:
+            opts.max_score = SubShop.params.todo_params.max_score if self.cmd == 'todo' else 999
+
+        self.use_plex = True if opts.use_plex else False if opts.avoid_plex else None
+        if self.use_plex is None:
+            self.use_plex = SubShop.params.cmd_opts_defaults.search_using_plex
+
+    def __init__(self, subcmd, args=None):
+        """args=None means get them from command line;
+        else use an array. NOTE:
+        - targets is required (may be 'dummy' or whatever if providing main loop)
+        """
+        self.cmd = subcmd
+        self.opts = None
+        self.counts_by_show = {} # if reporting
+        self.omdb_done_dirs = set()  # prevent repeating same OMDB repair
+        self.videos = [] # video files to handle
+        self.vps = [] # VideoPaths to handle - 1-to-1 with videos built as needed
+        self.screened_vps = set() # VideoPaths in screen
+        self.imdb_infos = {} # IMDB(id,season,episode) by filename
+        self.hists = {} # summary of action sucess / failure
+        self.todos = {} # to-do lists for to-do command
+        self.current_vp = None # currently processed VdiepPath
+        self.video_cnt = 0    # how many videos in scope not skipped
+        self.skip_cnt = 0    # how many videos skipped for cause
+        self.fail_cnt = 0    # how many attempts failed
+        self.bulk_limit = 0
+        self.cleanups = {}  # files to restore (if has value) else remove on exit
+        self.omdbfails = set()  # failures to avoid
+        self.parse_args(args)
+
+
+    @staticmethod
+    def on_exit():
+        """TBD"""
+        subshop = SubShop.singleton
+        if subshop and subshop.cleanups:
+            # lg.pr('on_exit()', subshop.cleanups)
+            subshop.do_cleanups()
+        else:
+            pass # lg.pr('on_exit() no cleanup')
+
+    def get_vp(self, idx):
+        """Make sure that self.videos.vp is a VideoPath and return it."""
+        vp = self.vps[idx]
+        if not vp:
+            vp = VideoPath(idx, self, self.videos[idx])
+            self.vps[idx] = vp
+            # vp.subcache.get_quirk() # refresh any quirk # FIXME: OK to omit:?
+            # lg.info('cache_dpath:', vp.subcache.cache_dpath, 'quirk:', vp.subcache.quirk)
+        self.current_vp = vp
+        return vp
+
+    def add_cleanup(self, frompath, topath=None):
+        """TBD"""
+        self.cleanups[frompath] = topath
+
+    def forget_cleanup(self, frompath=None):
+        """TBD"""
+        if frompath:
+            self.cleanups.pop(frompath, None)
+        else:
+            self.cleanups = {}
+
+    def do_cleanups(self):
+        """TBD"""
+        for loop in ('rm', 'mv'): # do removals first
+            for frompath, topath in self.cleanups.items():
+                try:
+                    if topath:
+                        if loop == 'mv':
+                            # lg.db('cleanup: move({}, {})'.format(frompath, topath))
+                            shutil.move(frompath, topath)
+                    else:
+                        if loop == 'rm':
+                            # lg.db('cleanup: unlink({})'.format(frompath))
+                            os.unlink(frompath)
+                except Exception:
+                    pass
+        self.cleanups = {}
+
+    def add_hist(self, vp, *msg):
+        """TBD"""
+        msg = ' '.join(msg)
+        self.hists[vp.fullpath] = msg
+        if 'FAILED' in msg:
+            self.fail_cnt += 1
+
+    def print_summary(self):
+        """TBD"""
+        if self.video_cnt + self.skip_cnt <= 1:
+            return
+        lg.pr('\n\n\n======================  SUMMARY  ====================== ')
+        not_avails = []
+        for videopath in list(self.hists):
+            if 'no available' in self.hists[videopath]:
+                not_avails.append(videopath)
+                del self.hists[videopath]
+
+        if self.hists:
+            sorted_videos = sorted(self.hists, key=lambda x: self.hists[x])
+            for video in sorted_videos:
+                lg.pr('\n' + os.path.basename(video) + '\n -', self.hists[video])
+            lg.pr('')
+
+#       for video, details in self.hists.items():
+#           lg.pr('\n' + video)
+#           for detail in details:
+#               lg.pr(' -', detail)
+        if not_avails:
+            lg.pr('FAILED: NO AVAILABLE SUBTITLES:')
+            for video in sorted(not_avails):
+                lg.pr('-', os.path.basename(video))
+            lg.pr('')
+
+        lg.info(f'{self.fail_cnt} FAILED of ' if self.fail_cnt else '',
+            f'{self.video_cnt - self.skip_cnt} actions [skipped={self.skip_cnt}]')
+
+
+    def get_all_videos(self, targets):
+        """TBD"""
+        self.videos = []
+        for video in VideoFinder(targets, only=self.opts.only,
+                every=self.opts.every, use_plex=self.use_plex):
+            self.videos.append(video)
+        self.vps = [None] * len(self.videos)
+
+    def within_generic_quota(self):
+        """TBD"""
+        if abs(self.opts.quota) and self.video_cnt - self.skip_cnt >= abs(self.opts.quota):
+            lg.pr('Stopping: quota')
+            raise KeyboardInterrupt
+
+    def within_download_quota(self):
+        """TBD"""
+        # lg.db('within_download_quota: quota: {} daycnt: {} dirty_cnt: {}'.format(self.quota,
+            # self.downloads_db.get_day_count(), self.downloads_db.dirty_cnt))
+        if self.bulk_limit:
+            if self.downloads_db.dirty_cnt >= self.bulk_limit:
+                lg.pr('Stopping: hit bulk download limit', self.bulk_limit)
+                raise KeyboardInterrupt
+            if tc.getRunTime() >= 4*3600:
+                lg.pr('Stopping: hit 4 hour limit')
+                raise KeyboardInterrupt
+
+        elif self.opts.quota < 0:
+            limit = 200 + self.opts.quota
+            while self.downloads_db.get_day_count() >= limit:
+                wait_time = self.downloads_db.get_wait_time(til_under=limit)
+                if wait_time > 3*3600:
+                    lg.pr('STOP: remaining download quota <= {}; must wait {}hr'.format(
+                            -self.opts.quota, round(wait_time/3600, 1)))
+                    raise KeyboardInterrupt
+                lg.info('NOTE: over quota ... PAUSING {}s'.format(wait_time))
+                time.sleep(wait_time)
+        if self.opts.quota > 0:
+            if self.downloads_db.dirty_cnt >= self.opts.quota:
+                lg.pr('Stopping: hit download limit', self.opts.quota)
+                raise KeyboardInterrupt
+        return True
+
+    def prc_video(self, idx):
+        """Handle one video file."""
+        # vp.subcache.get_quirk() # refresh FIXME: OK to comment out
+
+        if self.opts.dry_run:
+            self.within_generic_quota()
+        else:
+            if self.cmd in ('dos', 'redos'):
+                self.within_download_quota()
+            else:
+                self.within_generic_quota()
+
+            # lg.pr('\n=======>', vp.basename)
+
+        self.video_cnt += 1 # total videos processed
+        if self.cmd == 'zap':
+            self.zap_cmd(self.get_vp(idx))
+        if self.cmd == 'stat':
+            self.stat_cmd(self.get_vp(idx))
+        elif self.cmd == 'ref':
+            self.ref_cmd(self.get_vp(idx))
+        elif self.cmd == 'ignore':
+            self.ignore_cmd(self.get_vp(idx))
+        elif self.cmd == 'unignore':
+            self.unignore_cmd(self.get_vp(idx))
+        elif self.cmd == 'anal':
+            self.anal_cmd(self.get_vp(idx))
+        elif self.cmd == 'sync':
+            self.sync_cmd(self.get_vp(idx))
+        elif self.cmd == 'dos':
+            self.dos_cmd(self.get_vp(idx))
+        elif self.cmd == 'redos':
+            self.redos_cmd(self.get_vp(idx))
+        elif self.cmd == 'delay':
+            self.delay_cmd(self.get_vp(idx))
+        elif self.cmd == 'grep':
+            self.grep_cmd(self.get_vp(idx))
+        elif self.cmd == 'imdb':
+            self.imdb_cmd(self.get_vp(idx))
+        elif self.cmd == 'todo':
+            self.todo_cmd(self.get_vp(idx))
+        elif self.cmd == 'parse':
+            self.parse_cmd(self.videos[idx])
+        elif self.cmd == 'search':
+            self.search_cmd(self.videos[idx])
+
+    def pr_title(self):
+        """Print a divider between targets"""
+        lg.pr(f'\n=> {self.current_vp.basename} IN {self.current_vp.dirname}')
+
+    def skip(self, whynot):
+        """Skip the current VideoPath for cause."""
+        self.skip_cnt += 1
+        if self.opts.show_skips:
+            self.pr_title()
+            lg.pr(f'- SKIP: {whynot}')
+        return False
+
+    def has_quirks(self, *quirks):
+        """Test if any of the given quirks are set."""
+        vp = self.current_vp
+        vp.subcache.get_probeinfo()
+        quirk = vp.subcache.get_quirk()
+        if quirk in quirks:
+            return not self.skip(f'quirk.{quirk}') # return True
+        if (SubCache.AUTODEFER in quirks and quirk == SubCache.SCORE
+                and not vp.subcache.expired):
+            return not self.skip('quirk.AUTODEFER') # white lie, return True
+        return False
+
+    def is_special(self):
+        """Test if a TV special."""
+        vp = self.current_vp
+        if vp.subcache.parsed and vp.subcache.parsed.is_special:
+            return not self.skip('tv-special') # return True
+        return False
+
+    def has_unwanted_score(self):
+        """Check the score is within desire range."""
+        vp = self.current_vp
+        srt_score = vp.get_srt_score()
+        if srt_score < self.opts.min_score:
+            return not self.skip(f'score_below_min({srt_score}<{self.opts.min_score})')
+        if srt_score > self.opts.max_score:
+            return not self.skip(f'score_above_max({srt_score}>{self.opts.max_score})')
+        return False
+
+    def ignore_cmd(self, vp):
+        """Set ignore."""
+        vp.subcache.get_probeinfo()
+        quirk = vp.subcache.get_quirk()
+        if not vp.subcache.quirk_trumps(SubCache.IGNORE):
+            return self.skip(f'cannot_override_quirk_{quirk}')
+        self.pr_title()
+        if self.opts.dry_run:
+            would = 'WOULD '
+        else:
+            vp.subcache.force_set_quirk(SubCache.IGNORE)
+            would = ''
+        lg.pr(f'  {would}set quirk.{SubCache.IGNORE}')
+        return True
+
+    def unignore_cmd(self, vp):
+        """Clear ignore."""
+        vp.subcache.get_probeinfo()
+        quirk = vp.subcache.get_quirk()
+        if quirk != SubCache.IGNORE:
+            return self.skip(f'quirk_{SubCache.IGNORE}_not_set')
+        self.pr_title()
+        if self.opts.dry_run:
+            would = 'WOULD '
+        else:
+            would = ''
+            vp.subcache.clear_quirks()
+        lg.pr(f'  {would}clear quirk.{SubCache.IGNORE}')
+        return True
+
+    def zap_cmd(self, vp):
+        """zap subcommand ... remove the non-cached subtitles."""
+        srts = vp.get_srts()
+        if not srts:
+            return self.skip('no_ext_srts')
+        ok = True
+        if self.opts.dry_run:
+            lg.pr('WOULD: remove', len(srts), 'srts:', vp.basename)
+        else:
+            for srt in srts:
+                try:
+                    lg.pr('- remove', srt)
+                    os.unlink(srt)
+                    self.add_hist(vp, 'unlinked OK')
+                except Exception as exc:
+                    lg.err(f'unlink FAILED [{exc}]')
+                    ok = False
+        self.fail_cnt += 0 if ok else 1
+        return ok
+
+    def stat_cmd(self, vp):
+        """zap subcommand ... remove the non-cached subtitles."""
+        if self.has_unwanted_score():
+            return False
+        self.pr_title()
+        if self.opts.verbose:
+            vp.subcache.dump(verbose=True)
+        else:
+            info = ''
+            info += f' ext_srt<{vp.get_srt_score()}>' if vp.get_srts() else ''
+            info += ('' if vp.subcache.expired else 'defer') if vp.get_srts() else ''
+            info += ' int_subt' if vp.get_subt_stream() else ''
+            info += ' ref_srt' if vp.get_reference_srt() else ''
+            info += '' if info else ' NO_subt'
+            lg.pr('   ', info)
+        return True
+
+    def ref_cmd(self, vp):
+        """ref subcommand ... created the reference subs."""
+        if vp.get_reference_srt():
+            return self.skip('has_reference_srt')
+        if vp.get_subt_stream() and not vp.get_srts():
+            return self.skip('only_has_internal_subs')
+        if self.has_quirks(SubCache.FOREIGN, SubCache.IGNORE):
+            return False
+        self.pr_title()
+        if self.opts.dry_run:
+            lg.pr('WOULD: create reference srt:', vp.basename)
+        else:
+            if vp.make_reference(): # on failure, adds to history
+                self.add_hist(vp, 'got reference srt OK')
+                if self.opts.todo or self.opts.todo_cat:
+                    SubShop.todo_db.purge_video(vp.fullpath)
+            else:
+                self.add_hist(vp, 'get reference srt FAILED')
+        return True
+
+    def anal_cmd(self, vp):
+        """Analyze the current sub."""
+        srts = vp.get_srts()
+        if not srts:
+            return self.skip('has_NO_ext_SRTS')
+        if self.has_unwanted_score():
+            return False
+        if self.has_quirks(SubCache.FOREIGN, SubCache.IGNORE):
+            return False
+
+        self.pr_title()
+        if self.opts.dry_run:
+            lg.pr('WOULD: {}analyze {} of: {}'.format(
+                '' if vp.get_reference_srt() else 'get reference and ',
+                srts[0][len(vp.namepart):], vp.basename))
+        else:
+            result_str, srt_score = vp.analyze()
+            if srt_score is not None:
+                vp.rename_srt_and_score(srt_score)
+            if result_str:
+                self.add_hist(vp, 'analyze', result_str)
+            else:
+                self.add_hist(vp, 'analyze FAILED')
+            lg.pr('\n===>', result_str)
+        return True
+
+    def todo_cmd(self, vp):
+        """Generate the TODO lists."""
+        # pylint: disable=too-many-return-statements
+        def addvp(cat, vp):
+            nonlocal self
+            videos = self.todos.get(cat, [])
+            videos.append(vp.fullpath)
+            if len(videos) <= 1:
+                self.todos[cat] = videos
+
+        if self.has_quirks(SubCache.FOREIGN, SubCache.IGNORE):
+            return False
+        srts = vp.get_srts()
+        if srts:
+            if self.has_unwanted_score():
+                return False
+            if self.has_quirks(SubCache.AUTODEFER):
+                addvp('defer-redos', vp)
+                return False
+            addvp('redos', vp)
+        else:
+            if self.has_quirks(SubCache.INTERNAL):
+                return False
+            if self.is_special():
+                return False
+            if self.has_quirks(SubCache.AUTODEFER):
+                addvp('defer-dos', vp)
+                return False
+            min_time = time.time() - 24*3600*SubShop.params.todo_params.vip_days
+            is_vip = bool(os.path.getmtime(vp.fullpath) >=  min_time) # young enuf to be VIP?
+
+            if vp.get_reference_srt():
+                addvp('vip-dos' if is_vip else 'dos', vp)
+            else:
+                addvp('vip-ref-dos' if is_vip else 'ref-dos', vp)
+        return True
+
+    def sync_cmd(self, vp):
+        """Sync current sub."""
+        srts = vp.get_srts()
+        if not srts:
+            return self.skip('has_NO_ext_SRTS')
+        if self.has_quirks(SubCache.FOREIGN, SubCache.IGNORE):
+            return False
+        if self.has_unwanted_score():
+            return False
+        self.pr_title()
+        if self.opts.dry_run:
+            lg.pr('WOULD: sync {} of: {}'.format(
+                srts[0][len(vp.namepart):], vp.basename))
+                #lg.db(srts[0], len(os.path.basename(srts[0])), len(vp.namepart))
+        else:
+            compare_str = vp.sync()
+            if compare_str:
+                self.add_hist(vp, 'sync', compare_str)
+            else:
+                self.add_hist(vp, 'sync FAILED')
+        return True
+
+    def delay_cmd(self, vp):
+        """Sync current sub."""
+        srts = vp.get_srts()
+        if not srts:
+            return self.skip('has_NO_ext_SRTS')
+        self.pr_title()
+        secs = self.opts.delay_secs
+        if not -50 < secs < 50:
+            secs /= 1000  # assuming millseconds actually given
+        secs = round(secs, 3)
+        if self.opts.dry_run:
+            lg.pr(f'WOULD: delay {srts[0]} by {secs}s')
+            return True
+
+        args = []
+        if self.opts.interactive:
+            args.append('--interactive')
+        args.append(srts[0]) # not actually used but must appease ArgumentParser
+        fixer = SubFixer(args)
+        ok = fixer.do_one_file(delay_ms=int(round(secs*1000)), srt_file=srts[0])
+        if ok:
+            self.add_hist(vp, f'delayed by {secs}s')
+        else:
+            self.add_hist(vp, 'delay FAILED')
+        return True
+
+    def grep_cmd(self, vp):
+        """Grep current sub for per regexes and options."""
+        srts = vp.get_srts()
+        if not srts:
+            return self.skip('has_NO_ext_SRTS')
+        greppat = re.compile(self.opts.grep, re.IGNORECASE
+                     ) if self.opts.grep else None
+
+        args = []
+        if self.opts.interactive:
+            args.append('--interactive')
+        if self.opts.force:
+            args.append('--force')
+        if self.opts.verbose:
+            args.append('--verbose')
+        args.append('--log-level')
+        args.append(self.opts.log_level)
+
+        args.append(srts[0]) # not actually used but must appease ArgumentParser
+        fixer = SubFixer(args)
+
+        # self.pr_title()
+        found = fixer.grep_one_file(srts[0], pattern=greppat,
+                            use_config_pats=self.opts.grep_regexes)
+        if not found:
+            return self.skip('no_pattern_matches')
+        return True
+
+    def redos_cmd(self, vp):
+        """redo download and sync (forced or not)"""
+        # if vp.get_srts():  # TODO: figure out whether redos works w/o subs
+            # dos_cmd(self, vp)
+        if self.has_quirks(SubCache.FOREIGN, SubCache.IGNORE):
+            return False
+        #if not vp.get_srts() and vp.subcache.get_quirk() == SubCache.INTERNAL:
+        if not vp.get_srts():
+            return self.skip('no_ext_srt')
+        if self.has_unwanted_score():
+            return False
+        if not self.opts.interactive and self.has_quirks(SubCache.AUTODEFER):
+            return False
+        return self.dos_cmd_common()
+
+    def dos_cmd(self, vp):
+        """download and sync (forced or not)"""
+        if vp.get_srts():
+            return self.skip('has_subs')
+        nopes = [SubCache.FOREIGN, SubCache.IGNORE]
+        nopes += [] if self.opts.force and self.opts.interactive else [SubCache.INTERNAL]
+        if self.has_quirks(*nopes):
+            return False
+        if not self.opts.interactive and self.has_quirks(SubCache.AUTODEFER):
+            return False
+        if not self.opts.interactive and self.is_special():
+            return False
+        return self.dos_cmd_common()
+
+    def dos_cmd_common(self):
+        """Shared code between dos_cmd() and redos_cmd()."""
+        self.pr_title()
+        vp = self.current_vp
+        srt_score = vp.get_srt_score()
+        if self.opts.interactive and srt_score >= 0:
+            lg.pr(f'   srt_score={srt_score}')
+
+        if self.opts.dry_run:
+            lg.pr('WOULD: download/sync:', vp.basename)
+        elif self.within_download_quota():
+            if vp.subcache.quirk in (SubCache.AUTODEFER):
+                vp.subcache.clear_quirks()
+            if self.opts.todo or self.opts.todo_cat:
+                SubShop.todo_db.purge_video(vp.fullpath)
+            done = False
+            while not done:
+                done = True # break loop, unless explicitly set otherwise
+                if vp.download(): # on failure, adds to history
+                    if (len(vp.get_cached_downloads()) >
+                            SubShop.params.cmd_opts_defaults.defer_redos_sub_cnt):
+                        vp.subcache.set_defer()
+                    compare_str = vp.sync()
+                    if compare_str:
+                        self.add_hist(vp, 'download and sync', compare_str)
+                    else:
+                        self.add_hist(vp, 'download OK, sync FAILED')
+                    if self.opts.interactive and self.within_download_quota():
+                        text = input('>> Pick r (retry) -OR- n (next) -OR ignore!: ')
+                        text = text.strip().lower()
+                        if not text or text.startswith('n'):
+                            pass
+                        elif text == 'ignore!':
+                            print("Set ignore on:", vp.fullpath)
+                            vp.subcache.soft_set_quirk(SubCache.IGNORE)
+                        else:
+                            print('Redo:', vp.fullpath)
+                            done = False
+
+    def imdb_cmd(self, vp):
+        """View/modify the OMDb info."""
+        if vp.subcache.omdb_dpath in self.omdb_done_dirs:
+            return self.skip('already_visited')
+        self.omdb_done_dirs.add(vp.subcache.omdb_dpath)
+        self.pr_title()
+        if self.opts.dry_run:
+            if os.path.isfile(vp.subcache.get_omdbinfopath()):
+                lg.pr('WOULD: load omdbinfo')
+            else:
+                lg.pr('WOULD: create omdbinfo')
+            return True
+
+        info = vp.subcache.get_omdbinfo()
+        tool = SubCache.omdbtool
+        if self.opts.interactive:
+            choice = tool.search_interactively()
+            if 0 <= choice < len(tool.matches):
+                tool.commit_to_cache(tool.matches[choice])
+        else:
+            lg.pr(tool.info_str(info, indent='    ',  w_overview=True))
+        return True
+
+    def parse_cmd(self, fullpath):
+        """View/modify the OMDb info."""
+        ok = VideoParser.parse_file(fullpath,
+                verbose=self.opts.verbose or self.opts.show_skips)
+        self.fail_cnt += 0 if ok else 1
+        return True
+
+    @staticmethod
+    def search_cmd(fullpath):
+        """Just print the locations returned from VideoFinder."""
+        print(fullpath)
+
+    def gather_tvreport_video(self, idx):
+        """Gather report stats for one video file."""
+        vp = self.get_vp(idx)
+
+        # update counts of [missingSubs, episodes] per show and season
+        def ensure(idx, alist):
+            while len(alist) <= idx:
+                alist.append([0, 0, 0]) # [missing, total, noavailablesubs]
+
+#       if vp.subcache.omdb_dpath in self.omdbfails:
+#           info = None
+#       else:
+#           info = vp.subcache.get_omdbinfo()
+#           if not info:
+#               self.omdbfails.add(vp.subcache.omdb_dpath)
+#               lg.warn(f'cannot get IMDB info for "{vp.subcache.omdb_dpath}"')
+
+        title = os.path.basename(vp.subcache.omdb_dpath)
+
+        parsed = VideoParser(vp.basename)
+        season = 0 if parsed.season is None else int(parsed.season)
+        if season > 99 or season < 0:
+            lg.pr('\nNOTE: bad season ', season, vp.fullpath)
+        season = 0 if season < 0 else season
+        season = 99 if season >= 100 else season
+        cnts = self.counts_by_show.get(title, [])
+        ensure(season, cnts)
+        if not vp.get_srts() and not vp.get_subt_stream():
+            cnts[season][0] += 1
+            if vp.subcache.quirk in ('AUTODEFER', ):
+                cnts[season][2] += 1
+        cnts[season][1] += 1
+        self.counts_by_show[title] = cnts
+        # lg.db('cnts:', self.counts_by_show) # very verbose
+
+
+    def tvreport(self):
+        """Produce missing subtitle report for TV shows."""
+        lg.pr('\n==== Missing Subtitle Report:')
+        tot_missing, tot_episodes, tot_notfound = 0, 0, 0
+        for show_name, counts in self.counts_by_show.items():
+            missing_cnt, episode_cnt, notfound_cnt, summary = 0, 0, 0, ''
+            for season, pairs in enumerate(counts):
+                if pairs[1]:
+                    missing_cnt += pairs[0]
+                    episode_cnt += pairs[1]
+                    notfound_cnt += pairs[2]
+                if pairs[0]:
+                    summary += ' {}{}s{}'.format(pairs[0],
+                            '-{}'.format(pairs[2]) if pairs[2] else '',
+                            season)
+            if missing_cnt or self.opts.verbose:
+                lg.pr('{:>36}: {}{}/{}{}'.format(show_name,
+                    missing_cnt,
+                    '-{}'.format(notfound_cnt) if notfound_cnt else '',
+                    episode_cnt, summary))
+            tot_missing += missing_cnt
+            tot_episodes += episode_cnt
+            tot_notfound += notfound_cnt
+        lg.pr('TOTAL: {}-{} missing-unavailable of {} videos'.format(
+            tot_missing, tot_notfound, tot_episodes))
+
+
+    def main_loop(self):
+        """TBD"""
+
+        if self.cmd == 'tvreport': # FIXME: get rid if this, I think
+            self.opts.only = 'tv' # override since report only applies to tv shows
+            self.get_all_videos(self.opts.targets)
+            for idx in range(len(self.videos)):
+                self.gather_tvreport_video(idx)
+            self.tvreport()
+        elif self.cmd == 'dirs':
+            ssd.runner(self.opts)
+
+        elif self.cmd == 'install':
+            # install is "special"; expected "targets" are:
+            #  - firstly, some videos or folders with videos to move
+            #  - and the final "scope" is a folder to put them
+            whynot = ''
+            if len(self.opts.targets) < 2:
+                whynot = 'too few terms'
+            elif not os.path.isdir(self.opts.targets[-1]):
+                whynot = 'last term not a directory'
+            if whynot:
+                lg.err('misuse: {whynot}\n'
+                        'install expects 2+ terms: {src-video}... {dest-dir}\n'
+                        '   and {dest-dir} must be a directory')
+                sys.exit(15)
+            for video in VideoFinder(self.opts.targets[0:-1], allow_title=False):
+                mover = VideoMover.create(video, dry_run=self.opts.dry_run,
+                        verbose=self.opts.verbose)
+                if mover:
+                    mover.move(self.opts.targets[-1])
+
+        elif self.cmd == 'todo' and self.opts.dry_run:
+            todos = SubShop.todo_db.get_todos()
+            stats = todos.pop('counts', {})
+            print('TODO COUNTS:')
+            yaml_dump(stats, indent=0)
+            if self.opts.verbose:
+                print('TODO LISTS (can be limited and reduced):')
+                yaml_dump(todos, indent=0)
+
+        elif self.opts.todo and self.cmd in ('dos', 'ref', 'redos'):
+            if SubShop.todo_db is None:
+                SubShop.todo_db = TodoDB()
+            todos = SubShop.todo_db.get_todos()
+            for cat in SubShop.todo_cats:
+                todos[cat] = todos.get(cat, []) # ensure all are populated
+                random.shuffle(todos[cat]) # note: shuffled in place
+            if self.cmd == 'dos':
+                self.videos = (todos['vip-dos'] + todos['vip-ref-dos']
+                        + todos['dos'] + todos['ref-dos'])
+            elif self.cmd == 'ref':
+                self.videos = todos['vip-ref-dos'] + todos['ref-dos']
+            elif self.cmd == 'redos':
+                self.videos = todos['redos']
+
+            for idx, video in enumerate(self.videos):
+                self.vps.append(None)
+                self.prc_video(idx)
+
+        elif self.opts.todo_cat: # override the defaults
+            if SubShop.todo_db is None:
+                SubShop.todo_db = TodoDB()
+            todos = SubShop.todo_db.get_todos()
+            random.shuffle(todos[self.opts.todo_cat]) # note: shuffled in place
+            self.videos = todos[self.opts.todo_cat]
+            lg.info('DB set targets:', len(self.videos))
+            for idx, video in enumerate(self.videos):
+                self.vps.append(None)
+                self.prc_video(idx)
+
+        else:
+            # lg.info('DB cat:', self.opts.todo_cat)
+            if self.cmd == 'search':
+                if len(self.opts.targets) == 0:
+                    lg.err('search sub-command expects phrase (no targets)')
+                    sys.exit(1)
+                first_targ = self.opts.targets[0]
+                if os.path.isfile(first_targ) or os.path.isdir(first_targ):
+                    lg.err('search sub-command expects phrase (not files/folders)')
+                    sys.exit(1)
+
+            for idx, video in enumerate(VideoFinder(self.opts.targets, only=self.opts.only,
+                    every=self.opts.every, use_plex=self.use_plex,
+                    just_locations=bool(self.cmd == 'search'))):
+                self.videos.append(video)
+                self.vps.append(None)
+                self.prc_video(idx)
+
+            if self.cmd == 'todo':
+                lg.pr('TODO counts:')
+                for cat in self.todo_cats:
+                    videos = self.todos.get(cat, [])
+                    lg.pr(f'  {cat}:', len(videos))
+                    self.todos[cat] = sorted(videos)
+                if self.opts.verbose:
+                    yaml_dump(self.todos, indent=0)
+                SubShop.todo_db.todos = self.todos
+                SubShop.todo_db.mark_dirty()
+                SubShop.todo_db.commit()
+
+        self.print_summary()
+        SubDownloader.disconnect()
+
+
+class VideoPath():
+    """For handling each video file."""
+
+    def __init__(self, idx, subshop, path):
+        self.subshop = subshop
+        self.idx = idx
+        self.namepart, _ = os.path.splitext(path)
+
+        self.fullpath = os.path.abspath(path)
+        self.dirname = os.path.dirname(path)
+        self.basename = os.path.basename(path)
+        self.base_core, self.base_ext = os.path.splitext(self.basename)
+        self.subcache = SubCache(self.fullpath)
+
+        self.probe_digest = None
+        self.last_caption_secs = None
+
+        self._srt_score, self._srts, self._reference_srt = None, None, None
+        ## candidates = self.subcache.glob(self.base_core, '*.srt')
+        # self._srt_score, self._srts = self.subcache.get_subtpaths()
+        self._cat = None
+        # cat = self.subcache.get_cached_subtpaths()
+        # if cat.references:
+            # self.get_reference_srt = cat.references[0]
+
+        # lg.pr('fullpath:', self.fullpath)
+        # lg.pr('srts:', self._srts)
+        # lg.pr('reference_srt:', self.get_reference_srt())
+        # sys.exit(1)
+
+    def srt_cnt(self):
+        """Return number of srts (i.e., external subs)."""
+        return len(self.get_srts())
+
+    def get_srts(self):
+        """Return non-cached srts."""
+        if self._srts is None:
+            self._srts = self.subcache.get_subtpaths()
+            self._srt_score = self.subcache.get_srt_score()
+
+        return self._srts
+
+    def get_srt_score(self):
+        """Return non-cached srts."""
+        self.get_srts()
+        return self._srt_score
+
+    def get_reference_srt(self):
+        """Get the preferred reference SRT if any."""
+        if not self._cat:
+            self._cat = self.subcache.get_cached_subtpaths()
+        refs = self._cat.references
+        return refs[0] if refs else None
+
+    def get_cached_downloads(self):
+        """Get the downloaded SRTs if any."""
+        if not self._cat:
+            self._cat = self.subcache.get_cached_subtpaths()
+        return self._cat.downloads
+
+
+    def get_subt_stream(self):
+        """Meant to be lazy."""
+        if not self.subshop.opts.ignore_internal:
+            self._probe()
+            if self.probe_digest:
+                return self.probe_digest.get_subt_stream()
+        return None
+
+    def get_duration(self):
+        """Meant to be lazy."""
+        self._probe()
+        if self.probe_digest:
+            return self.probe_digest.duration
+        return 0.0
+
+    def _probe(self):
+        """TBD"""
+        self.probe_digest = self.subcache.get_probeinfo()
+
+
+    def analyze(self, verbosity=None, temp_file=None, fallback_srt=None):
+        """Analyze the currently preferred SRT, possibly creating
+        a new file if temp_file is given and there is a better variation.
+        """
+        if not self.get_reference_srt():
+            rv = self.make_reference()
+            if not self.get_reference_srt():
+                return rv + ' [cannot get reference SRT]', None
+
+        # lg.db('analyzing:', self.get_srts()[0])
+        caplist = self._get_caplist(self.get_srts()[0], make_analyzer=True)
+        rcaplist = self._get_caplist(self.get_reference_srt())
+        if verbosity is None:
+            verbosity=1 if self.subshop.opts.verbose else 0
+
+        if fallback_srt:
+            fallback_caplist = self._get_caplist(fallback_srt, make_analyzer=True)
+        else:
+            fallback_caplist = None
+
+        compare_str = caplist.analyze(rcaplist, self.get_duration(),
+                verbosity=verbosity, out_file=temp_file,
+                fallback_caplist=fallback_caplist)
+        mat = re.match(r'OK\d?\s+dev\s(\d+\.\d+)s\b.*?\bpts\s+(\d+)\b', compare_str)
+        if mat:
+            stdev = float(mat.group(1))
+            pts = float(mat.group(2))
+            scparams = self.subshop.params.score_params
+            # lg.info('scparams:', vars(scparams))
+            score = int(round(stdev * 10))
+            scparams = self.subshop.params.score_params
+            if pts <= scparams.pts_max_penalty:
+                score += 10
+            elif pts < scparams.pts_min_penalty:
+                # scale the score linearly from 0 to 20 depending on how far from the
+                # "min" towards the "max" (e.g., 0pts(max) <= 10pts <= 50pts(min)
+                #   scores as 16 (equiv to a 1.6s stdev penalty)
+                score += int(round(20 * ((scparams.pts_min_penalty - pts) /
+                    (scparams.pts_min_penalty - scparams.pts_max_penalty))))
+            if score < 1:
+                score = 1
+            elif score > 19:
+                score = 19
+
+        # lg.info(f'score={score} cmp={compare_str}')
+        return compare_str, score
+
+    def rename_srt_and_score(self, srt_score, old_path=None):
+        """Rename an srt file per the scoring conventions."""
+        new_path = os.path.join(self.dirname, self.base_core +
+                f'.{self.subshop.params.my_lang2}.srt')
+        if old_path is None:
+            old_path = self.get_srts()[0]
+        if new_path != old_path:
+            for path in self.get_srts():
+                if path != old_path and os.path.isfile(path):
+                    os.unlink(path)
+            shutil.move(old_path, new_path)
+            self._srts = [new_path]
+        if srt_score is None:
+            self.subcache.clear_quirks()
+        else:
+            self.subcache.force_set_quirk(SubCache.SCORE, srt_score)
+
+
+    def download(self, search_only=False):
+        """TBD"""
+        new_srt = self.namepart + '.DOWNLOAD.srt'
+        fallback_srt = None
+        try:
+            trashes = []
+            srts = self.get_srts()
+            for idx, srt in enumerate(srts):
+                if srt.lower().endswith(('temp.srt', 'download.srt')):
+                    trashes.insert(0, idx)
+                elif not fallback_srt:
+                    fallback_srt = srt
+                else:
+                    tmp = srt + '.origTEMP.srt'
+                    # lg.db('move:', srt, tmp)
+                    shutil.move(srt, tmp)
+                    self.subshop.add_cleanup(tmp, srt) # clean up restores originals
+
+            for idx in trashes: # trashes must be in reverse order
+                try:
+                    os.unlink(srts[idx])
+                except Exception:
+                    pass
+                srts.pop(idx)
+
+        except Exception as exc:
+            # pylint: disable=raise-missing-from
+            whynot = f'cannot move srts [{str(exc)}]'
+            lg.err('FAILED: ', whynot)
+            self.subshop.add_hist(self, f'download FAILED [{whynot}]')
+            self.subshop.do_cleanups()
+            raise KeyboardInterrupt
+
+        args = []
+        if not self.subshop.opts.interactive:
+            if self.subshop.cmd == 'redos':
+                args.append('--auto-redo')
+            else:
+                args.append('--auto')
+
+        if self.subshop.bulk_limit:
+            minutes_left = max(0, 4*60 - (int(tc.getRunTime()) // 60))
+            args.append(f'--keep-trying={minutes_left}')
+
+        if self.subshop.opts.wait:
+            # tool.opt_keep_trying = 24*60 # a day of minutes
+            args.append('--keep-trying={}'.format(24*60))
+
+        # tool.opt_search_imdb = None
+        # tool.opt_search_season = None
+        # tool.opt_search_episode = None
+
+        info = self.subcache.get_omdbinfo()
+        imdb_id = info.imdbID if info else None
+        if not imdb_id:
+            imdb_id = self.subshop.opts.imdb
+        if imdb_id:
+            # tool.opt_search_imdb = imdb_id
+            args.append('--imdb={}'.format(imdb_id))
+
+        creds = self.subshop.params.credentials.opensubtitles_org_usr_pwd.split(maxsplit=1)
+        args.append('--username=' + creds[0] if len(creds) > 0 and creds[0] else 'username-not-set')
+        args.append('--password=' + creds[1] if len(creds) > 1 and creds[1] else 'password-not-set')
+        args.append('--forced-suffix=DOWNLOAD.srt')
+        args.append('--lang=' + self.subshop.params.my_lang3)
+
+        args.append(self.fullpath)
+
+        tool = SubDownloader(args)
+
+        self.subcache.clear_quirks()
+        tool.do_video_path(self.fullpath, search_only)
+        if search_only:
+            return bool(tool.winner)
+
+        if tool.downloaded_subtitle:
+            # this download counts whether successfully decoded/unzipped or not
+            self.subshop.downloads_db.add_timestamp()
+
+        if os.path.isfile(new_srt):
+            # lg.db("OK: srt found:", new_srt)
+            # std_srt = new_srt[:-4] + '.en.srt'
+            # lg.db('move:', new_srt, std_srt)
+            # shutil.move(new_srt, std_srt)
+            for discard in self.subshop.cleanups:
+                try:
+                    # lg.db('unlink:', discard)
+                    os.unlink(discard)
+                except Exception:
+                    pass
+                    # lg.err('failed unlink:', discard)
+            self.subshop.forget_cleanup()
+            self._srts = [new_srt]
+            if fallback_srt:
+                self._srts.append(fallback_srt)
+            # lg.db('downloaded:', os.path.basename(new_srt))
+
+            if self.get_duration():
+                caplist = CaptionList(new_srt)
+                caplist.detect_ads()
+                caplist.purge_ads()
+                if caplist.captions:
+                    self.last_caption_secs = round(caplist.captions[-1].end_ms / 1000, 3)
+            return True
+        else:
+            self.subshop.do_cleanups() # put everything back
+            whynot = 'srt not found'
+            if tool and tool.whynot:
+                whynot = tool.whynot
+            elif tool and tool.exit_code:
+                whynot = tool.exit_code
+            self.subshop.add_hist(self, f'download FAILED [{whynot}]')
+            lg.err(f'fetching srt failed [{whynot}]')
+            self.subcache.set_defer()
+            if tool.exit_code:
+                raise KeyboardInterrupt
+            return False
+
+    def make_reference(self):
+        """TBD"""
+        stream = self.subcache.get_probeinfo().get_audio_stream()
+        if not stream:
+            return f'FAIL: no {self.subshop.params.my_lang3} audio stream'
+
+        tool = self.subshop.params.reference_tool
+        if tool == 'autosub':
+            new_srt = self.subcache.makepath(self.base_core + '.AUTOSUB.srt')
+            opts = f'--src-language {self.subshop.params.my_lang2}'
+        else:
+            new_srt = self.subcache.makepath(self.base_core + '.REFERENCE.srt')
+            tool = 'video2srt'
+            opts = f'--stream {stream}'
+
+        self.subshop.add_cleanup(new_srt)
+        self.subshop.add_cleanup(self.subcache.cache_dpath)
+
+
+        cmd = '{} {} -o {} {}'.format(tool, opts,
+                shlex.quote(new_srt), shlex.quote(self.fullpath))
+        lg.pr('\n+', cmd)
+        rv = os.system(cmd)
+        exit_code, signal = 0, 0
+        if rv:
+            exit_code, signal = rv >> 8, rv & 0x0FF
+            lg.err(f'os.system("{tool} ..")',
+                    f'killed by sig {signal}' if signal else f'returned {exit_code}')
+            if signal or exit_code == 15:
+                raise KeyboardInterrupt
+
+        if exit_code or signal:
+            self.subshop.do_cleanups()
+            rv = (f'FAIL [sync killed by sig {signal}]\n' if signal
+                    else f'FAIL [tool returned {exit_code}]\n')
+            lg.pr('\n-------------', rv, '\n')
+            return rv
+
+        if os.path.isfile(new_srt):
+            self.subshop.forget_cleanup(new_srt)
+            rv = 'OK'
+            lg.pr('\n-------------', rv, '\n')
+            self._cat.references.insert(0, new_srt)
+            return rv
+
+        lg.pr('\n-------------', 'FAIL', '\n')
+        return 'FAIL [no srt file]'
+
+    def sync(self):
+        """TBD"""
+        def clean_tmps(self, tmps):
+            for tmp in tmps:
+                if os.path.isfile(tmp):
+                    try:
+                        os.unlink(tmp)
+                    except Exception:
+                        pass
+                self.subshop.forget_cleanup(tmp)
+
+        # if we need a reference srt, then fetch it.
+        if not self.get_reference_srt():
+            rv = self.make_reference()
+            if not self.get_reference_srt():
+                return rv + ' [cannot make reference SRT]'
+
+        srts = self.get_srts()
+        unadjusted_srt = srts[0]
+        unadjusted_srt_suffix = unadjusted_srt[len(self.namepart)+1:]
+        if unadjusted_srt_suffix.lower() == 'no.srt':
+            lg.pr('NOTE: ignoring subtitles with .no.srt extension')
+            return 'OK [.no.srt extension defeats sync]'
+
+        new_srt = self.namepart + '.en.srt'
+        otmp_srt = self.namepart + '.osyncTEMP.srt'
+        itmp_srt = self.namepart + '.isyncTEMP.srt'
+        fallback_srt = srts[1] if len(srts) >= 2 else None
+
+        for tmp_srt in (otmp_srt, itmp_srt):
+            self.subshop.add_cleanup(tmp_srt)
+            if os.path.isfile(tmp_srt):  # ensure the TEMP is not in the way already
+                # lg.db('unlink:', tmp_srt)
+                os.unlink(tmp_srt)
+
+        compare_str, srt_score = self.analyze(temp_file=otmp_srt,
+                fallback_srt=fallback_srt,
+                verbosity=1 if self.subshop.opts.verbose else 0)
+
+        if os.path.isfile(otmp_srt):
+            # if syncing created a better adjusted srt, then replace it.
+            ocaplist = self._get_caplist(srts[0])
+            ncaplist = self._get_caplist(otmp_srt)
+            if fallback_srt:
+                # lg.db('os.unlink:', fallback_srt)
+                os.unlink(fallback_srt)
+            # lg.db('shutil.move:', otmp_srt, new_srt)
+            shutil.move(otmp_srt, new_srt)
+        elif fallback_srt:
+            # else prevent removing fallback by indicating it is the desired
+            new_srt = fallback_srt
+        else:
+            # else prevent removing unadjusted by indicating it is the desired
+            new_srt = unadjusted_srt
+
+        clean_tmps(self, [otmp_srt, itmp_srt])
+        if unadjusted_srt_suffix == 'DOWNLOAD.srt':
+            clean_tmps(self, [unadjusted_srt])
+
+        if not compare_str and self.get_reference_srt():
+            lg.pr('\n===> Analyze new subs versus reference')
+            compare_str = self.analyze(verbosity=-1)
+
+        if not compare_str and ocaplist and ncaplist:
+            # compare should start with "{N} " where N is in [0...9]
+            compare_str = ncaplist.compare(ocaplist, self.get_duration())
+
+        if srt_score is not None:
+            self.rename_srt_and_score(srt_score, new_srt)
+        elif new_srt not in srts:
+            srts = self._srts = [new_srt]
+        if compare_str and 'FAIL' in compare_str:
+            rv = compare_str
+        else:
+            if 'OK' in compare_str or 'FAIL' in compare_str:
+                rv = compare_str
+            else:
+                rv = 'OK' + compare_str
+        lg.pr('\n-------------', rv, '\n')
+        return rv
+
+
+    @staticmethod
+    def _get_caplist(srt_path, make_analyzer=False):
+        # lg.db('srt_path:', srt_path)
+        caplist = None
+        with open(srt_path, 'r', encoding = 'utf-8', errors='ignore') as srt:
+            caplist = CaptionListAnalyzer(srt) if make_analyzer else CaptionList(srt)
+        return caplist
+
+
+if __name__ == "__main__":
+    def main():
+        """Implement SubShop.py as a command...
+        """
+        def splitargv():
+            """Split argv into ours and theirs.  Ours ends with first non-option; e.g.,
+                -h --help ConfigNanny -n
+            splits:
+                -h --help ConfigNanny <<--ours  theirs-->> -n
+            """
+            which, argv = 0, [[], []]
+            for arg in sys.argv[1:]:
+                argv[which].append(arg)
+                which = 1 if which or not arg.startswith('-') else 0
+            return argv[0], argv[1]
+        main_argv, subcmd_argv = splitargv()
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--profile', action='store_true', help='run code profiler')
+        parser.add_argument('cmd', choices=SubShop.subcmds)
+        main_opts = parser.parse_args(main_argv)
+
+
+        if main_opts.cmd == 'run':
+            # handle 'run' subcommand specially because it does
+            # not share similar options/targets
+            import LibGen.ModRun
+            sys.argv[0] = 'subshop run'
+            LibGen.ModRun.main(__file__, [sys.argv[0]] + subcmd_argv)
+            sys.exit(1)
+
+        subshop = SubShop(main_opts.cmd, subcmd_argv)
+
+        if not subshop.opts.dry_run and not main_opts.profile:
+            # pylint: disable=unused-variable
+            sys.argv[0] = 'subshop'
+            exclusively = None if (subshop.opts.dry_run or subshop.cmd in (
+                'anal', 'ref', 'tvreport')) else tc.Exclusively()
+
+        if not main_opts.profile:
+            subshop.main_loop()
+        else:
+                # import cProfile
+                # cProfile.run("main()")
+            import cProfile, pstats, io
+            from pstats import SortKey
+            pr = cProfile.Profile()
+            pr.enable()
+            subshop.main_loop() # ... do something ...
+            pr.disable()
+            s = io.StringIO()
+            sortby = SortKey.CUMULATIVE
+            ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+            ps.print_stats(20)
+            print(s.getvalue())
+
+    try:
+        main()
+    except KeyboardInterrupt:
+        lg.info("Shutdown requested, so exiting ...")
+        the_subshop = SubShop.singleton
+        if the_subshop and the_subshop.hists:
+            the_subshop.print_summary()
+        SubShop.on_exit()
+        sys.exit(15)
+
+    except Exception as exc:
+        if not isinstance(exc, BrokenPipeError):
+            lg.err("Caught exception running main(), so exiting ...")
+            lg.pr(traceback.format_exc())
+            the_subshop = SubShop.singleton
+            if the_subshop and the_subshop.hists:
+                the_subshop.print_summary()
+        SubShop.on_exit()
+        sys.exit(15)
+
+    sys.exit(0)

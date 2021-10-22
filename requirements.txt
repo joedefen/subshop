@@ -1,0 +1,6 @@
+requests>=2.26.0
+PlexAPI>=4.7.1
+Send2Trash>=1.8.0
+ruamel.yaml>=0.17.16
+pysigset>=0.4.0
+vosk>=0.3.31

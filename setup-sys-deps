@@ -1,0 +1,42 @@
+#!/bin/bash
+# script to install subshop's non-python dependencies
+set -x
+
+# get config_d, cache_d, log_d, model_d
+eval $(subshop run SubShopDirs) 
+
+# get vosk model and install under the generic
+# "model directory"
+vosk_model_d="${model_d}/.vosk-model"
+vosk_url=https://alphacephei.com/kaldi/models
+model_name=vosk-model-small-en-us-0.15
+
+if [ ! -d "${vosk_model_d}/${model_name}" ]; then
+    if [ ! -d "${vosk_model_d}" ]; then
+        mkdir -p "$vosk_model_d"
+    fi
+    cd "$vosk_model_d"
+    wget "${vosk_url}/${model_name}.zip"
+    unzip "${model_name}.zip"
+    rm "${model_name}.zip"
+fi
+
+commands="ffmpeg ffprobe"
+
+for cmd in $commands; do
+    if which $cmd >/dev/null 2>&1; then
+        continue
+    fi
+    if which apt-get >/dev/null 2>&1; then
+        sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install $cmd
+        continue
+    fi
+    if which pacman >/dev/null 2>&1; then
+        sudo pacman -S --noconfirm $cmd
+        # NOTE: on arch, ffmpeg includes ffprobe 
+        continue
+    fi
+    echo "NOTE: unsure how to install '$cmd'"
+
+done
+
