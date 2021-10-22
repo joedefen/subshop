@@ -36,6 +36,8 @@ Tools to download, remove ads, and synchronize subtitles.
       * [subshop imdb {targets} # verify/update IMDB info for videos](#subshop-imdb-targets--verifyupdate-imdb-info-for-videos)
       * [subshop tvreport # summarize missing subtitles for TV shows](#subshop-tvreport--summarize-missing-subtitles-for-tv-shows)
       * [subshop inst {video}... {folder} # "install" videos](#subshop-inst-video-folder--install-videos)
+      * [subshop dirs # show subshop's persistent data directories](#subshop-dirs--show-subshops-persistent-data-directories)
+      * [subshop tail # follow the log file](#subshop-tail--follow-the-log-file)
 * [Remedying Missing/Misfit Subtitles](#remedying-missingmisfit-subtitles)
    * [A. When You Need Better Fitting Subtitles](#a-when-you-need-better-fitting-subtitles)
    * [B. When OpenSubtitles.org Does Not Have the Subtitles](#b-when-opensubtitlesorg-does-not-have-the-subtitles)
@@ -56,7 +58,7 @@ Tools to download, remove ads, and synchronize subtitles.
    * [<a href="https://github.com/platelminto/parse-torrent-title">GitHub - platelminto/parse-torrent-title</a>](#github---platelmintoparse-torrent-title)
    * [<a href="https://www.reddit.com/r/PleX/comments/m8g1km/super_fast_way_to_add_srt_subtitles_to_your_movies/" rel="nofollow">Super Fast Way to Add SRT Subtitles to Your Movies : PleX</a>](#super-fast-way-to-add-srt-subtitles-to-your-movies--plex)
 
-<!-- Added by: joe, at: Fri Oct 22 11:57:27 AM EDT 2021 -->
+<!-- Added by: joe, at: Fri Oct 22 04:58:13 PM EDT 2021 -->
 
 <!--te-->
 ## Purpose
@@ -526,8 +528,30 @@ Installation tool for moving downloaded "raw" videos/subtitles into your TV and 
 * This tool attempts to move the video(s) and associated English subtitle(s) to the single, given folder; if the videos do not belong in the same destination folder, use separate invocations.
 * You are completely responsible for determining the correct destination folder.
 
+### subshop dirs # show subshop's persistent data directories
+Shows a list of directories that subshop uses for persistent data; i.e.:
 
----
+* `config_d`: where its configuration file, `subshop.yaml` resides
+* `cache_d`: where its state files reside
+* `log_d`: where its log files reside
+* `model_d`: where its voice recognition model resides
+
+The `-v` option will list the files in each directory.
+
+By default, `config_d=~/.config/subshop`, and the other three are set to `~/.cache/subshop`. You can override the defaults in your environment;
+e.g, setting the variable `SUBSHOP_CONFIG_D` overrides `config_d`.
+
+### subshop tail # follow the log file
+subshop duplicates most of what it prints to its log file(s).
+This sub-command will run `less -F` on the current and previous log file
+(there are two files in the "rotation"). NOTE (as a `less -f` quickstart):
+
+* you start in "follow" mode at the current file.
+* `CTRL-C` will return to "normal" mode (and `F` returns to "follow" mode).
+* `:n` switches to the previous log and `:p` returns to the current log.
+
+
+--
 
 # Remedying Missing/Misfit Subtitles
 If the sync is lousy or the summary results are concerning, here are some
