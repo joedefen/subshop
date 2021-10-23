@@ -110,9 +110,9 @@ Clone the project into, say, your home directory; and install into, say, your yo
     $ cd subshop; pip3 install . --user 
         # ---OR--- do a virtualenv install
     $ cd subshop
-    $ python -m venv .venv
+    $ python3 -m venv .venv
     $ source .venv/bin/activate
-    $ pip install .
+    $ pip3 install .
         # run tests and use as described within the virtualenv only
     # deactivate # disable virtualenv
     $ rm -rf .venv # cleanup virtualenv
