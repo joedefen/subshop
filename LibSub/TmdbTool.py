@@ -41,7 +41,6 @@ class TmdbTool:
     tmdb_service = 'https://api.themoviedb.org/3'
     tmdb_apikey = params.credentials.tmdb_apikey
 
-    image_viewer = params.image_viewer
     terminal_columns = shutil.get_terminal_size((79, 20))[0]
     # lg.info('terminal_size:', shutil.get_terminal_size((79, 20)))
 
@@ -63,12 +62,10 @@ class TmdbTool:
         self.__init__()
 
     @staticmethod
-    def override(tmdb_apikey=None, image_viewer=None):
+    def override(tmdb_apikey=None):
         """override configured APIKEY and or Image Viewer."""
         if tmdb_apikey:
             TmdbTool.tmdb_apikey = tmdb_apikey
-        if image_viewer:
-            TmdbTool.image_viewer = image_viewer
 
     @staticmethod
     def info_str(match, w_overview=False, max_lines=None, indent=0, indent2=8):
@@ -456,7 +453,6 @@ def runner(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('-T', '--tmdb-apikey',
             help='manually set your TMDb API Key')
-    parser.add_argument('--viewer', help='image viewer command (use "{}" for filename)')
     parser.add_argument('-i', '--interactive', action='store_true',
             help='pick best match [else 1st is chosen automatically]')
     parser.add_argument('--testing', action='store_true',
@@ -467,7 +463,7 @@ def runner(argv):
     args = parser.parse_args(argv)
     lg.setup(level=args.log_level)
 
-    TmdbTool.override(tmdb_apikey=args.tmdb_apikey, image_viewer=args.viewer)
+    TmdbTool.override(tmdb_apikey=args.tmdb_apikey)
 
     tool = TmdbTool()
 

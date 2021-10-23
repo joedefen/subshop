@@ -3,7 +3,12 @@
 set -x
 
 # get config_d, cache_d, log_d, model_d
-eval $(subshop run SubShopDirs) 
+eval $(subshop dirs) 
+
+if [ "x${model_d}" = "x" ]; then
+    echo "env var 'model_d' not setup by 'subshop dirs'"
+    exit 1
+fi
 
 # get vosk model and install under the generic
 # "model directory"

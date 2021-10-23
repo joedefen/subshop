@@ -8,6 +8,9 @@ Tools to download, remove ads, and synchronize subtitles.
 * [Installation, Configuration, and Preparation](#installation-configuration-and-preparation)
    * [Installation Procedure](#installation-procedure)
    * [Configuration](#configuration)
+   * [Verify the Installation](#verify-the-installation)
+   * [Optional: Install autosub](#optional-install-autosub)
+   * [Optional: Automating Download/Sync of Subtitles](#optional-automating-downloadsync-of-subtitles)
 * [Expected Video Folder Organization](#expected-video-folder-organization)
       * [Video File Naming Conventions](#video-file-naming-conventions)
       * [Description/Rationale for the Cached Files](#descriptionrationale-for-the-cached-files)
@@ -38,15 +41,14 @@ Tools to download, remove ads, and synchronize subtitles.
       * [subshop inst {video}... {folder} # "install" videos](#subshop-inst-video-folder--install-videos)
       * [subshop dirs # show subshop's persistent data directories](#subshop-dirs--show-subshops-persistent-data-directories)
       * [subshop tail # follow the log file](#subshop-tail--follow-the-log-file)
+      * [subshop run {module} # run low-level module](#subshop-run-module--run-low-level-module)
 * [Remedying Missing/Misfit Subtitles](#remedying-missingmisfit-subtitles)
    * [A. When You Need Better Fitting Subtitles](#a-when-you-need-better-fitting-subtitles)
    * [B. When OpenSubtitles.org Does Not Have the Subtitles](#b-when-opensubtitlesorg-does-not-have-the-subtitles)
    * [C. When No Subtitles Fit](#c-when-no-subtitles-fit)
    * [D. When Internal Subtitles Fit Poorly](#d-when-internal-subtitles-fit-poorly)
    * [E. When 'subshop' Falls Back to Less Desired Subtitles](#e-when-subshop-falls-back-to-less-desired-subtitles)
-* [Automating Download/Sync of Subtitles](#automating-downloadsync-of-subtitles)
-* [Installation](#installation)
-* [Configuration and Customization](#configuration-and-customization)
+   * [F. Manually Adjusting Subtitles](#f-manually-adjusting-subtitles)
 * [Theories of Operation](#theories-of-operation)
    * [Choosing Subtitles to Download](#choosing-subtitles-to-download)
    * [Synchronizing Subtitles](#synchronizing-subtitles)
@@ -58,7 +60,7 @@ Tools to download, remove ads, and synchronize subtitles.
    * [<a href="https://github.com/platelminto/parse-torrent-title">GitHub - platelminto/parse-torrent-title</a>](#github---platelmintoparse-torrent-title)
    * [<a href="https://www.reddit.com/r/PleX/comments/m8g1km/super_fast_way_to_add_srt_subtitles_to_your_movies/" rel="nofollow">Super Fast Way to Add SRT Subtitles to Your Movies : PleX</a>](#super-fast-way-to-add-srt-subtitles-to-your-movies--plex)
 
-<!-- Added by: joe, at: Fri Oct 22 04:58:13 PM EDT 2021 -->
+<!-- Added by: joe, at: Sat Oct 23 11:59:35 AM EDT 2021 -->
 
 <!--te-->
 ## Purpose

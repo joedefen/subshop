@@ -35,7 +35,7 @@ setup(
     author='Joe Def',
     url='TBD',
     author_email='joe@jdef.ga',
-    scripts=['subshop'],
+    scripts=['subshop', 'video2srt', 'subs-cronjob'],
     packages=['LibSub', 'LibGen'],
     classifiers=[
         'Operating System :: POSIX',

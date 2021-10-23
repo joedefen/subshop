@@ -18,14 +18,10 @@ SUBSHOP_TEMPLATE=r'''
 - movie-root-dirs:  # all installed movies expected any level below these absolute paths
   - /YOUR-MOVIE-ROOTDIRS
 - credentials: !!omap # various credentials
-  - omdb-apikey: YOUR-OMDB-APIKEY # from omdbapi.com (1000/day free)
-  - imdb-apikey: YOUR-OMDB-APIKEY # from imdb-api.com (100/day free)
   - tmdb-apikey: YOUR-TMDB-APIKEY # from tmdb-api.com
   - opensubtitles-org-usr-pwd: YOUR-USER YOUR-PASSWD # from opensubtitles.org (200down/day free)
   - plex-url-token: YOUR-PLEX-URL YOUR-PLEX-TOKEN # if empty string, plex is not enabled
-- image-viewer: YOUR-IMAGE-VIEWER-COMMAND # use '{}' to place image path; else appended
-- srt-auto-download: true # if no SRTs, fetch when video installed if true TODO: move/remove
-- srt-keep-original: false # keep original after ad removal/sync  TODO: purge
+- srt-auto-download: true # if no SRTs, fetch when video installed if true
 - reference-tool: video2srt # autosub or video2srt
 - download-params: !!omap
   - max-choices: 32 # shown only top so-many choices
