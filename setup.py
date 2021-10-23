@@ -16,7 +16,7 @@ Some ways to use this script...
  $ pip install -e . # '-e' for editable
  $ # run tests and use
  # deactivate # disable virtualenv
- $ rm -rf .venv # cleanup virutalven away
+ $ rm -rf .venv # cleanup virtualenv
 
 === Install into home directory 
 

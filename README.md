@@ -105,7 +105,16 @@ Plex is used narrowly; if you have a large collection and/or very limited CPU/RA
 Clone the project into, say, your home directory; and install into, say, your your directories:
 ```
     $ cd; git clone https://github.com/joedefen/subshop.git
-    $ cd subshop; pip3 install . --user
+    $ cd subshop; pip3 install . --user 
+        # ---OR--- do a virtualenv install
+    $ cd subshop
+    $ python -m venv .venv
+    $ source .venv/bin/activate
+    $ pip install .
+        # run tests and use as described within the virtualenv only
+    # deactivate # disable virtualenv
+    $ rm -rf .venv # cleanup virtualenv
+
 ```
 Having installed the code and its python dependencies,
 now install the non-python dependencies (e.g., `ffmpeg`, `ffprobe`, and the [VOSK Model](https://alphacephei.com/vosk/models)).
@@ -156,6 +165,46 @@ Specifically, for PLEX:
 The config will not load if:
 * there are YAML syntax errors, or
 * the expected basic type of a parameter is incorrect (e.g., you change a string parameter to a numberic type).
+
+## Verify the Installation
+After install, it would be a good idea to ensure a working setup and make adjustments.  Here are some commands to try.
+
+* `subshop dirs`:  dumps the persistent data folder locations (if the configuration is loadable).
+* `subshop stat {video-folder}`:  dumps the status of the videos in the given folder. With no arguments, it will run on your entire collection; depending on the size of your collection, the first run may be much slower than later run because `ffprobe` information will be cached for subsequent runs.
+* `subshop dos {subless-video-file}`: given a video file w/o internal or external subtitles, tries to download and sync subtitles. This should test that your credentials for OpenSubtitles.org and TheMovieDatabase.com are working, that your voice recognition is working, etc.
+* `subshop redos -i {video-file-with-external-subs}`:  interatively, attempts to download and sync replacement subtitles.  You are given a chance to fix a incorrect IMDB identification, select an alternative subtitle to try, and after synchronization, try again on move on.
+* `subshop sync {video-file-with-external-subs}`: run the synchronization logid on the given video and its subtitles, make adjustments, and report the goodness of fit.
+* `subshop todo`: creates various TODO lists for automating process of getting will fitted subtitles.  Depending on the size of collection, this may take quite a while. Similar to the `subshop stat` trial above, you can pass in a {video-folder} to limit the scope of the TODO lists and cut the time for the initial trial.
+
+## Optional: Install `autosub`
+If you are running on a system with limited resources for voice recognition, then it may be more practical to use [autosub](https:/github.com/agermanidis/autosub). To to so:
+* follow the `autosub` install procedure (note it uses python2/pip2).
+* in `subshop.yaml`, change the `reference-tool` to `autosub` (rather than the included `video2srt` script).
+
+Using `video2srt` is the preferred configuration. On a modern, typical desktop/server, voice recognition requires about 1s per minute of video (using, say, 6 threads).  If running signficantly longer than that, then `autosub` is likely preferrable.
+
+## Optional: Automating Download/Sync of Subtitles
+You may wish to add a daily cron job; the current version of the included `subs-cronjob` is:
+```
+#!/bin/bash
+# A recommended daily cronjob for subtitle maintenance
+# e.g.:
+# 13 0 * * * bash -c subs-cronjob >~/.last-subs-cron-job 2>&1
+set -x
+    # update the todo list
+subshop todo
+    # try to download/sync subs for new videos (<30 days) AND a random selection
+subshop dos --todo
+    # try to fix poorly scored subs
+subshop redos --todo
+    # try to download reference files for videos lacking them
+subshop ref --todo
+```
+NOTES:
+* `subshop todo`: creates TODO lists for automation; it limits the size of each.
+* `subshop dos --todo`: performs download-and-sync on videos w/o subtitles that are on its TODO list.
+* `subshop redos --todo`: performs download-and-sync on videos with misfit subtitles that are on its TODO list.
+* `subshop ref --todo`: creates "reference" subtitles for videos w/o substitles or reference subtitles.  Having the reference subtitles speeds subsequent manual or automated  subtitle operations.
 
 # Expected Video Folder Organization
 TV series and movies should be organized similar to this:
@@ -301,12 +350,7 @@ Subtitles are given a score from 1 to 19 that represents:
 * the tenths of seconds of standard deviation of the subtites to the reference, plus
 * a penalty of 0 to 20 if the number captions correlated to the reference subtitles is under 50
 
-If the net subtitle score is not between 1 and 19, then it is coereced within.
-
-Score subtitles are rename with their score; e.g., "foobar.en.srt" is renamed "foobar.en09.srt" to indicate its score is 9 when analyzed. For filtering purposes, an unscored subtitle is given an arbitrary, large score (e.g., 100) but that score is not put into its file name.  Beware:
-
-* many players (e.g, `vlc`) handle the `en09.srt` w/o ado, but,
-* `mpv` does not by default; you must add `--autosub=fuzzy` to its arguments or add `autosub=fuzzy` to your `~/.config/mpv/mpv.conf`.
+If the net subtitle score is not between 1 and 19, then it is coereced within.  For filtering purposes, an unscored subtitle is given an arbitrary, large score (e.g., 100) but that score is not store.
 
 **Filtering on score.** Some sub-commands honor options:
 * `-m/--min-score {score}`: filter for videos with subtitles only as poor as the given floor
@@ -550,6 +594,18 @@ This sub-command will run `less -F` on the current and previous log file
 * `CTRL-C` will return to "normal" mode (and `F` returns to "follow" mode).
 * `:n` switches to the previous log and `:p` returns to the current log.
 
+### subshop run {module} # run low-level module
+`subshop` includes a number of foundation modules and they can exercised using `subshop run`.  Some examples:
+
+* `subshop run -h`: list all the modules and describe what they do if `run`.  The quaality of desriptions may vary widely.
+* `subshop run {module} -h`: provides help for the particular module.
+* `subshop run ConfigSubshop`: verifies/dumps the current configuration.
+* `subshop run VideoParser`: run the filename parser on every video in your collection (per your configuration) and shows those with issues; e.g., it reports:
+    * TV shows w/o a parsable season/episode ("specials" often are unparsable),
+    * movies w/o a parseable year (making identification less certain).
+* `subshop run VideoParser --regression -v`: run the filename parser regression tests and show the tests; you can see examples of parseable and unparseable filenames.
+* `subshop run PlexQuery blood`: if you have configure PLEX for queries, shows the result of querying for the given terms ('blood' in this example).
+* `subshop run TmdbTool -i {targets}`: interactively sets the IMDB info for the video targets; normally, this is part of the download operation.
 
 --
 
@@ -611,17 +667,8 @@ If subshop falls back to "undesired" subtitles when trying to replace them, then
 * With the current subtitles out of the way, run whatever command will install the desired subtitles; often that is `subshop -i redos`.
 * Note that `subshop` will keep existing subtitles (which it calls the "fallback") if the new subs do not score sufficiently better than the existing.
 
-**TBD** Fix stuff below.
-* How to just shift subtitles using SubFixer (say for English subs and foreign audio).
-
-# Automating Download/Sync of Subtitles
-**TBD**: describe `sub_cronjob`
-
-# Installation
-**TBD**: describe ConfigSubshop.py.
-
-# Configuration and Customization
-**TBD**: describe ConfigSubshop.py.
+## F. Manually Adjusting Subtitles
+For subtitle/language cases that `subshop` does not handle, (e.g., for English subs and foreign audio), then many players allow shifting (i.e., delaying or advancing the subtitles by a constant shift. See the `subshop delay` subcommand for details.
 
 # Theories of Operation
 ## Choosing Subtitles to Download

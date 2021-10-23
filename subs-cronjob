@@ -1,0 +1,13 @@
+#!/bin/bash
+# A recommended daily cronjob for subtitle maintenance
+# e.g.:
+# 13 0 * * * bash -c subs-cronjob >~/.last-subs-cron-job 2>&1
+set -x
+    # update the todo list
+subshop todo
+    # try to download/sync subs for new videos (<30 days) AND a random selection
+subshop dos --todo
+    # try to fix poorly scored subs
+subshop redos --todo
+    # try to download reference files for videos lacking them
+subshop ref --todo
