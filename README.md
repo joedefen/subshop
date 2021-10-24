@@ -33,7 +33,7 @@ Tools to download, remove ads, and synchronize subtitles.
       * [subshop ignore {targets} # disable subtitle actions](#subshop-ignore-targets--disable-subtitle-actions)
       * [subshop unignore {targets} # re-enable subtitle actions](#subshop-unignore-targets--re-enable-subtitle-actions)
       * [subshop zap {targets} # remove external subtitles](#subshop-zap-targets--remove-external-subtitles)
-      * [subshop -D{secs} delay {targets}  # manually shift subtitle times](#subshop--dsecs-delay-targets---manually-shift-subtitle-times)
+      * [subshop delay -D{secs} {targets}  # manually shift subtitle times](#subshop--dsecs-delay-targets---manually-shift-subtitle-times)
       * [subshop grep {targets} # find patterns in subtitles](#subshop-grep-targets--find-patterns-in-subtitles)
       * [subshop parse {targets} # check parsability of video filenames](#subshop-parse-targets--check-parsability-of-video-filenames)
       * [subshop imdb {targets} # verify/update IMDB info for videos](#subshop-imdb-targets--verifyupdate-imdb-info-for-videos)
@@ -92,15 +92,20 @@ Current limitations of these tools are:
 ## Required Web Credentials
 You are expected to obtain:
 
-* an opensubtitles.org account and know your username and password; this allows for 200 subtitles per day.
+* an [OpenSubtitles.org][https://www.opensubtitles.org] account and know your username and password; this allows for 200 subtitle downloads per day.
 * [The Movie Database API](https://developers.themoviedb.org/3/getting-started/introduction) key;  see the instructions on the linked page.
 * (optional) your Plex server URL and token;
-    * the default is "http:/localhost:32400"
+    * typically, "http:/localhost:32400" works for PLEX
     * to get the token, see [Finding an authentication token / X-Plex-Token | Plex Support](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/)
 
-OpenSubtitles.org is fairly unreliable (e.g., you might find it down 10% of the day). `subshop` attempts to use these unreliable/stingy resources efficiently, and automating tasks in the background can reduce frustration.  The cache files are an important part of that strategy.
-
-Plex is used narrowly; if you have a large collection and/or very limited CPU/RAM resources, you can configure `subshop` to use Plex for its searches which, for some installs, reduces searches for videos from, say, 10 minutes to nearly instantaneous.
+NOTES:
+* OpenSubtitles.org is fairly unreliable (e.g., you might find it down 10% of the day).
+    * `subshop` attempts to use its unreliable/stingy resources efficiently;  the cache files are an important part of its strategy.
+    * By default, `subshop` tracks your downloads and allows 160 downloads/day for automated downloads which leaves 40/day for manual downloads.
+    * Doing most of your downloads as automated, background tasks removes most of the agony of opensubtitles.org's downtime.
+* If you paid for an OpenSubtitles.org VIP account, you are allowed 1000 downloads per day.
+    * With a quota of 1000, you match wish to tweak settings and options to use more than the 200 that `subshop` assumes if you have a large backlog.
+* PLEX is used very narrowly (i.e., for searching); if you have a large collection and/or very limited CPU/RAM resources, you can configure `subshop` to use PLEX for its searches which, for some installs, reduces searches for videos from, say, 10 minutes to nearly instantaneous.
 
 # Installation, Configuration, and Preparation
 ## Installation Procedure
@@ -172,6 +177,7 @@ The config will not load if:
 After install, it would be a good idea to ensure a working setup and make adjustments.  Here are some commands to try.
 
 * `subshop dirs`:  dumps the persistent data folder locations (if the configuration is loadable).
+* `subshop parse {video-folder}`:  parses the video filenames in the given folder and reports the those that may be problematic for automation (i.e., TV episodes w/o parsed season/episode numbers and movies w/o a parsed year). Running this w/o arguments (i.e., on your whole collection) might indicate ambiguities worth resolving before creating the cache directories).
 * `subshop stat {video-folder}`:  dumps the status of the videos in the given folder. With no arguments, it will run on your entire collection; depending on the size of your collection, the first run may be much slower than later run because `ffprobe` information will be cached for subsequent runs.
 * `subshop dos {subless-video-file}`: given a video file w/o internal or external subtitles, tries to download and sync subtitles. This should test that your credentials for OpenSubtitles.org and TheMovieDatabase.com are working, that your voice recognition is working, etc.
 * `subshop redos -i {video-file-with-external-subs}`:  interatively, attempts to download and sync replacement subtitles.  You are given a chance to fix a incorrect IMDB identification, select an alternative subtitle to try, and after synchronization, try again on move on.
@@ -456,7 +462,7 @@ Remove external subtitles for the {targets}. Obviously, use with caution since y
 
 * `-n/--dryrun`: use to verify how many/which subtitles you would remove.
 
-### subshop -D{secs} delay {targets}  # manually shift subtitle times
+### subshop delay -D{secs} {targets}  # manually shift subtitle times
 Delays the subtitles by the amount given in the -D/--delay-secs option. A negative amount make the subtitles appear earlier rather than later. Requires an "installed" (apparently English) subtitle and acts only on the preferred one (e.g, "video.en.srt" is preferred over "video.srt").
 
 One use case is to adjust English subtitles for a foreign language video since `subshop` does not support non-English language audio.
@@ -507,11 +513,11 @@ Views, sets, and corrects the IMDB information for the TV show or movie. For dow
 * `-n/--dryrun`: use to see whether the IMDB is cached or not.
 
 To generate a list of TV shows / movies w/o cached IMDB info, run:
-* `subshop -n imdb | grep -B1 create`
+* `subshop imdb -n | grep -B1 create`
 
 Here is an example of setting IMDB info:
 ```
-<svr binsb> subshop -i imdb spirited away
+<svr binsb> subshop imdb -i spirited away
 
 => Spirited Away 2001 720p BluRay x264-REKD.mkv IN /heap/Videos/Movies/Movies=Old
 2021-09-17:17:13:40.452 ERR  imdb-api query failed: status=404 reason=Not Found err=<Response [404]>
@@ -590,7 +596,7 @@ e.g, setting the variable `SUBSHOP_CONFIG_D` overrides `config_d`.
 ### subshop tail # follow the log file
 subshop duplicates most of what it prints to its log file(s).
 This sub-command will run `less -F` on the current and previous log file
-(there are two files in the "rotation"). NOTE (as a `less -f` quickstart):
+(there are two files in the "rotation"). NOTE (as a `less -F` quickstart):
 
 * you start in "follow" mode at the current file.
 * `CTRL-C` will return to "normal" mode (and `F` returns to "follow" mode).
@@ -618,8 +624,8 @@ possible actions.
 ## A. When You Need Better Fitting Subtitles
 It is not uncommon to need better fitting subtitles. You can try:
 
-* `subshop -i redos {target}` to redress particular video files.
-* `subshop -T defer-redos` to redress the deferred problem cases.
+* `subshop redos -i {target}` to redress particular video files.
+* `subshop defer-redos -T` to redress the deferred problem cases.
 
 When given the dialog to choose subs:
 
@@ -654,19 +660,19 @@ For tough problems,  rerun the sync: `subshop sync {target}`
     * the video is misnamed or corrupt.
     * the video has little dialog.
 
-If still more clues are needed, especially if the point count is low, re-run the sync in verbose mode: `subshop -v sync {target}`. This shows the correlations between the installed and reference subtitles.
+If still more clues are needed, especially if the point count is low, re-run the sync in verbose mode: `subshop sync -v {target}`. This shows the correlations between the installed and reference subtitles.
 
 * If the correlated phrases have "non-trite" agreement, you have the properly matched video and subtitles, and otherwise not and you may need to replace the video file
 * Notice the deltas; if there are huge "rifts" where the delta jumps by 10s or 100s of seconds, the video or subtitles may be flawed and need replacment.
    
 ## D. When Internal Subtitles Fit Poorly
-If the video has poorly fit internal subs (which does happens), run `subshop -fi dos {target}` and choose 'EMBEDDED' from the list; the internal subtitles will be extracted and synced (now as external subtitles).
+If the video has poorly fit internal subs (which does happens), run `subshop dos -fi {target}` and choose 'EMBEDDED' from the list; the internal subtitles will be extracted and synced (now as external subtitles).
 
-Adjusted internal subtitles often are good enough; but if not, now you can use `subshop -i redos` to replace those.
+Adjusted internal subtitles often are good enough; but if not, now you can use `subshop redos -i` to replace those.
 
 ## E. When 'subshop' Falls Back to Less Desired Subtitles
 If subshop falls back to "undesired" subtitles when trying to replace them, then remove the existing subtitles with: `subshop zap {target}`.
-* With the current subtitles out of the way, run whatever command will install the desired subtitles; often that is `subshop -i redos`.
+* With the current subtitles out of the way, run whatever command will install the desired subtitles; often that is `subshop redos -i`.
 * Note that `subshop` will keep existing subtitles (which it calls the "fallback") if the new subs do not score sufficiently better than the existing.
 
 ## F. Manually Adjusting Subtitles
@@ -690,7 +696,7 @@ Listed are the download selection criteria, defaults weights, "tag", and brief d
 
 You can change the weights in the  `download-score-params` section of the YAML configuration file.
 
-Here is an example (`subshop -i redos xirtam`) with explanations (btw, the title was altered to avoid search hits on the title):
+Here is an example (`subshop redos -i xirtam`) with explanations (btw, the title was altered to avoid search hits on the title):
 ```
 >> OMDb info: The Xirtam (1999) tt0133093 [movie] Poster
 >> Filename: The Xirtam 1999 BluRay 720p HEVC AC3 D3FiL3R (1).mkv
