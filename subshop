@@ -1187,6 +1187,8 @@ class VideoPath():
                 score = 1
             elif score > 19:
                 score = 19
+        else:
+            score = 19  # hmmm, most likely right
 
         # lg.info(f'score={score} cmp={compare_str}')
         return compare_str, score
