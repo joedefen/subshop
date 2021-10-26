@@ -23,17 +23,6 @@ SUBSHOP_TEMPLATE=r'''
   - plex-url-token: YOUR-PLEX-URL YOUR-PLEX-TOKEN # if empty string, plex is not enabled
 - srt-auto-download: true # if no SRTs, fetch when video installed if true
 - reference-tool: video2srt # autosub or video2srt
-- download-params: !!omap
-  - max-choices: 32 # shown only top so-many choices
-  - imdb-timeout-secs: 10.0 # IMDb/OMDb query timeout in seconds (else hangs 'forever')
-  - omdb-timeout-secs: 10.0 # generic movie DB query timeout (just in case)
-- subcache-purge-days: !!omap  # based on "access" (or last read) time
-  - AUTOSUB: 0 # recommend 0 (keep forever)
-  - REFERENCE: 0 # recommend 0 (keep forever)
-  - TORRENT: 0 # recommend 0
-  - EMBEDDED: 0 # recommend 0
-  - linked: 0 # recommend 0 when linked to current subtitle
-  - unlinked: 0 # recommend 0 or 180+
 - speech-to-text-params: !!omap
   - thread-cnt: 0 # computed if not set positive to roughly 75% of cpu count
 - cmd-opts-defaults: !!omap  # subshop command defaults
@@ -44,20 +33,22 @@ SUBSHOP_TEMPLATE=r'''
 - plex-query-params: !!omap  # PlexApi options
   - plex-path-adj: "" # set -/{prefix} and/or +/{prefix} to make local path
   - warn-if-nonexistent: false # warn for non-existent paths (can be just noise)
+- download-params: !!omap
+  - max-choices: 32 # shown only top so-many choices
+  - imdb-timeout-secs: 10.0 # IMDb/OMDb query timeout in seconds (else hangs 'forever')
+- download-score-params: !!omap # weights to choose best matching subtitle
+    - hash-match: 40  # if video hash matches
+    - imdb-match: 20  # if IMDB ID matches
+    - season-episode-match: 30 # if parsed filename season/episode matches
+    - year-match: 20 # if parsed filename year matches
+    - title-match: 10 # if parsed filename title matches
+    - name-match-ceiling: 9 # name score scaled from 0 based on simlilarity
+    - hearing-impaired: 2 # if marked hearing impaired
+    - duration-ceiling: 40 # duration score scaled from 0 based on closeness
+    - lang-pref: 80  # (moot) if multiple langanges, boost for being 1st
 - score-params: !!omap
-  - scored_names: true # put score in subt names (e.g., foobar.en07.srt)
   - pts_min_penalty: 50     # start penalty for too few points
   - pts_max_penalty: 0      # max penalty for too few pts (1.0s)
-- quirk-params: !!omap
-  - misfit_A: !!omap  # mediocre fit thresholds
-    - max_pts: 50
-    - min_stdev: 0.75
-  - misfit_B: !!omap  # lousy fit thresholds
-    - max_pts: 20
-    - min_stdev: 1.0
-  - misfit_C: !!omap  # broken fit thresholds
-    - max_pts: 10
-    - min_stdev: 2.0
 - todo-params: !!omap  # to control todo list
   - per_list_limit: 500  # limit on each of the TODO sub-lists (forced to >= 20)
   - min_score:  10      # minimum score for redos
@@ -107,16 +98,13 @@ SUBSHOP_TEMPLATE=r'''
     - \bsubtitles by\b
     - \bsynchronized by\b
     - \bcaption(ing|ed) by\b
-- download-score-params: !!omap # weights to choose best matching subtitle
-    - hash-match: 40  # if video hash matches
-    - imdb-match: 20  # if IMDB ID matches
-    - season-episode-match: 30 # if parsed filename season/episode matches
-    - year-match: 20 # if parsed filename year matches
-    - title-match: 10 # if parsed filename title matches
-    - name-match-ceiling: 9 # name score scaled from 0 based on simlilarity
-    - hearing-impaired: 2 # if marked hearing impaired
-    - duration-ceiling: 40 # duration score scaled from 0 based on closeness
-    - lang-pref: 80  # (moot) if multiple langanges, boost for being 1st
+- subcache-purge-days: !!omap  # based on "access" (or last read) time
+  - AUTOSUB: 0 # recommend 0 (keep forever)
+  - REFERENCE: 0 # recommend 0 (keep forever)
+  - TORRENT: 0 # recommend 0
+  - EMBEDDED: 0 # recommend 0
+  - linked: 0 # recommend 0 when linked to current subtitle
+  - unlinked: 0 # recommend 0 or 180+
 '''
 
 class ConfigSubshop(YamlConfig):
