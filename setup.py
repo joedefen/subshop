@@ -18,30 +18,33 @@ Some ways to use this script...
  # deactivate # disable virtualenv
  $ rm -rf .venv # cleanup virtualenv
 
-=== Install into home directory 
+=== Install into home directory
 
  $ cd ~/subshop # or wherever the project dir resides
  $ pip install . --user # add '-e' for editable
 
 """
+import io
+import os
 from setuptools import setup
 
-with open('requirements.txt') as f:
-    requirements = f.read().splitlines()
-with open('README.md') as f:
-    long_description = f.read()
+def read(file_name):
+    """Read a text file and return the content as a string."""
+    pathname = os.path.join(os.path.dirname(__file__), file_name)
+    with io.open(pathname, encoding="utf-8") as fh:
+        return fh.read()
 
 setup(
     name='subshop',
-    version='0.1.1',
+    version='0.1.2',
     license='MIT',
     description='Tools to download, clean, and synchronize subtitles',
-    long_description=long_description,
+    long_description=read('README.md'),
     long_description_content_type='text/markdown',
     author='Joe Defen',
     author_email='joe@jdef.ga',
     url='https://github.com/joedefen/subshop',
-    download_url='https://github.com/joedefen/subshop/releases/tag/v0.1.1',
+    download_url='https://github.com/joedefen/subshop/releases/tag/v0.1.2',
     scripts=['subshop', 'video2srt', 'subs-cronjob'],
     packages=['LibSub', 'LibGen'],
     classifiers=[
@@ -50,5 +53,6 @@ setup(
         'Programming Language :: Python :: 3',
         'Intended Audience :: End Users/Desktop',
         ],
-    install_requires=requirements,
+    install_requires=['requests', 'PlexAPI',
+        'Send2Trash', 'ruamel.yaml', 'pysigset', 'vosk']
     )
