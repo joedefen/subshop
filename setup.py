@@ -28,19 +28,23 @@ from setuptools import setup
 
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()
+with open('README.md') as f:
+    long_description = f.read()
 
 setup(
-    name = 'subshop',
-    version = '0.1.0',
-    license = 'MIT',
-    description = 'tools to download, clean, and synchronize subtitles',
-    author = 'Joe Defen',
-    author_email = 'joe@jdef.ga',
-    url = 'https://github.com/joedefen/subshop',
-    download_url = 'TBD',
-    scripts = ['subshop', 'video2srt', 'subs-cronjob'],
-    packages = ['LibSub', 'LibGen'],
-    classifiers = [
+    name='subshop',
+    version='0.1.1',
+    license='MIT',
+    description='Tools to download, clean, and synchronize subtitles',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    author='Joe Defen',
+    author_email='joe@jdef.ga',
+    url='https://github.com/joedefen/subshop',
+    download_url='https://github.com/joedefen/subshop/releases/tag/v0.1.1',
+    scripts=['subshop', 'video2srt', 'subs-cronjob'],
+    packages=['LibSub', 'LibGen'],
+    classifiers=[
         'Development Status :: 4 - Beta',
         'Operating System :: POSIX',
         'Programming Language :: Python :: 3',
