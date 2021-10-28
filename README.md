@@ -92,7 +92,7 @@ Current limitations of these tools are:
 ## Required Web Credentials
 You are expected to obtain:
 
-* an [OpenSubtitles.org][https://www.opensubtitles.org] account and know your username and password; this allows for 200 subtitle downloads per day.
+* an [OpenSubtitles.org](https://www.opensubtitles.org) account and know your username and password; this allows for 200 subtitle downloads per day.
 * [The Movie Database API](https://developers.themoviedb.org/3/getting-started/introduction) key;  see the instructions on the linked page.
 * (optional) your Plex server URL and token;
     * typically, "http:/localhost:32400" works for PLEX
