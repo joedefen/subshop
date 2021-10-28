@@ -98,7 +98,7 @@ SUBSHOP_TEMPLATE=r'''
     - \bsubtitles by\b
     - \bsynchronized by\b
     - \bcaption(ing|ed) by\b
-- subcache-purge-days: !!omap  # based on "access" (or last read) time
+- subcache-purge-days: !!omap  # (NOT IMPLEMENTED YET) based on "access" time
   - AUTOSUB: 0 # recommend 0 (keep forever)
   - REFERENCE: 0 # recommend 0 (keep forever)
   - TORRENT: 0 # recommend 0

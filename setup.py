@@ -30,16 +30,20 @@ with open('requirements.txt') as f:
     requirements = f.read().splitlines()
 
 setup(
-    name='subshop',
-    version='0.1.0',
-    author='Joe Def',
-    url='TBD',
-    author_email='joe@jdef.ga',
-    scripts=['subshop', 'video2srt', 'subs-cronjob'],
-    packages=['LibSub', 'LibGen'],
-    classifiers=[
+    name = 'subshop',
+    version = '0.1.0',
+    license = 'MIT',
+    description = 'tools to download, clean, and synchronize subtitles',
+    author = 'Joe Defen',
+    author_email = 'joe@jdef.ga',
+    url = 'https://github.com/joedefen/subshop',
+    download_url = 'TBD',
+    scripts = ['subshop', 'video2srt', 'subs-cronjob'],
+    packages = ['LibSub', 'LibGen'],
+    classifiers = [
+        'Development Status :: 4 - Beta',
         'Operating System :: POSIX',
-        'Programming Language :: Python',
+        'Programming Language :: Python :: 3',
         'Intended Audience :: End Users/Desktop',
         ],
     install_requires=requirements,
