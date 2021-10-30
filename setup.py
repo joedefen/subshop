@@ -36,7 +36,7 @@ def read(file_name):
 
 setup(
     name='subshop',
-    version='0.1.2',
+    version='0.1.3',
     license='MIT',
     description='Tools to download, clean, and synchronize subtitles',
     long_description=read('README.md'),
@@ -44,8 +44,8 @@ setup(
     author='Joe Defen',
     author_email='joe@jdef.ga',
     url='https://github.com/joedefen/subshop',
-    download_url='https://github.com/joedefen/subshop/releases/tag/v0.1.2',
-    scripts=['subshop', 'video2srt', 'subs-cronjob'],
+    download_url='https://github.com/joedefen/subshop/releases/tag/v0.1.3',
+    scripts=['subshop', 'video2srt', 'subs-cronjob', 'subshop-sys-deps'],
     packages=['LibSub', 'LibGen'],
     classifiers=[
         'Development Status :: 4 - Beta',

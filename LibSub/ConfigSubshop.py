@@ -98,6 +98,16 @@ SUBSHOP_TEMPLATE=r'''
     - \bsubtitles by\b
     - \bsynchronized by\b
     - \bcaption(ing|ed) by\b
+- daily: !!omap # A recommended daily cronjob for subtitle maintenance
+  - pathdirs: [] # added to PATH (subshop dir added automatically)
+  - lines: # lines are joined to create script
+    - '#!/bin/bash # normally, use "crontab -e", and add ...'
+    - '# 13 0 * * * ~/.local/bin/subshop daily >~/.subshop-daily 2>&1'
+    - set -x
+    - subshop todo # update the todo lists
+    - subshop dos --todo # get subs for new videos and a random selection
+    - subshop redos --todo # try to fix poorly scored subs
+    - subshop ref --todo # create reference subs for videos needing them
 - subcache-purge-days: !!omap  # (NOT IMPLEMENTED YET) based on "access" time
   - AUTOSUB: 0 # recommend 0 (keep forever)
   - REFERENCE: 0 # recommend 0 (keep forever)

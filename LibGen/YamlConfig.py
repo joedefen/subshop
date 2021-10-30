@@ -243,11 +243,14 @@ class Internalize():
             elif isinstance(templ_val, list):
                 # lg.db(f'validate_list: templ_val={templ_val[0]} T={type(templ_val[0])}')
                 ############### NOTE: not sure this restriction is required... but OK now
-                if not isinstance(templ_val[0], (str, float, int)):
-                    raise TypeError(f'template{subaddr + [0]} list not str/float/int')
                 if not isinstance(param_val, list):
                     raise TypeError(f'config{subaddr} should be list')
-                templ_type = type(templ_val[0])
+                if len(templ_val):
+                    if not isinstance(templ_val[0], (str, float, int)):
+                        raise TypeError(f'template{subaddr + [0]} list not str/float/int')
+                    templ_type = type(templ_val[0])
+                else:
+                    templ_type = str # assume empty template is list of strings
                 for idx, val in enumerate(param_val):
                     idxaddr = subaddr + [idx]
                     # idxparam_val = self._get_by_addr(idxaddr)

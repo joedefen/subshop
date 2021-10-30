@@ -7,10 +7,13 @@ Tools to download, remove ads, and synchronize subtitles.
    * [Required Web Credentials](#required-web-credentials)
 * [Installation, Configuration, and Preparation](#installation-configuration-and-preparation)
    * [Installation Procedure](#installation-procedure)
+      * [Install subshop and its Python Dependencies](#install-subshop-and-its-python-dependencies)
+      * [Install subshop's Non-Python Dependencies](#install-subshops-non-python-dependencies)
+      * [Intial Test of Your Install](#intial-test-of-your-install)
    * [Configuration](#configuration)
    * [Verify the Installation](#verify-the-installation)
    * [Optional: Install autosub](#optional-install-autosub)
-   * [Optional: Automating Download/Sync of Subtitles](#optional-automating-downloadsync-of-subtitles)
+   * [Optional: Automating the Download and Synchronization of Subtitles](#optional-automating-the-download-and-synchronization-of-subtitles)
 * [Expected Video Folder Organization](#expected-video-folder-organization)
       * [Video File Naming Conventions](#video-file-naming-conventions)
       * [Description/Rationale for the Cached Files](#descriptionrationale-for-the-cached-files)
@@ -33,7 +36,7 @@ Tools to download, remove ads, and synchronize subtitles.
       * [subshop ignore {targets} # disable subtitle actions](#subshop-ignore-targets--disable-subtitle-actions)
       * [subshop unignore {targets} # re-enable subtitle actions](#subshop-unignore-targets--re-enable-subtitle-actions)
       * [subshop zap {targets} # remove external subtitles](#subshop-zap-targets--remove-external-subtitles)
-      * [subshop delay -D{secs} {targets}  # manually shift subtitle times](#subshop--dsecs-delay-targets---manually-shift-subtitle-times)
+      * [subshop delay -D{secs} {targets}  # manually shift subtitle times](#subshop-delay--dsecs-targets---manually-shift-subtitle-times)
       * [subshop grep {targets} # find patterns in subtitles](#subshop-grep-targets--find-patterns-in-subtitles)
       * [subshop parse {targets} # check parsability of video filenames](#subshop-parse-targets--check-parsability-of-video-filenames)
       * [subshop imdb {targets} # verify/update IMDB info for videos](#subshop-imdb-targets--verifyupdate-imdb-info-for-videos)
@@ -41,6 +44,7 @@ Tools to download, remove ads, and synchronize subtitles.
       * [subshop inst {video}... {folder} # "install" videos](#subshop-inst-video-folder--install-videos)
       * [subshop dirs # show subshop's persistent data directories](#subshop-dirs--show-subshops-persistent-data-directories)
       * [subshop tail # follow the log file](#subshop-tail--follow-the-log-file)
+      * [subshop daily # automation support](#subshop-daily--automation-support)
       * [subshop run {module} # run low-level module](#subshop-run-module--run-low-level-module)
 * [Remedying Missing/Misfit Subtitles](#remedying-missingmisfit-subtitles)
    * [A. When You Need Better Fitting Subtitles](#a-when-you-need-better-fitting-subtitles)
@@ -60,7 +64,7 @@ Tools to download, remove ads, and synchronize subtitles.
    * [<a href="https://github.com/platelminto/parse-torrent-title">GitHub - platelminto/parse-torrent-title</a>](#github---platelmintoparse-torrent-title)
    * [<a href="https://www.reddit.com/r/PleX/comments/m8g1km/super_fast_way_to_add_srt_subtitles_to_your_movies/" rel="nofollow">Super Fast Way to Add SRT Subtitles to Your Movies : PleX</a>](#super-fast-way-to-add-srt-subtitles-to-your-movies--plex)
 
-<!-- Added by: joe, at: Sat Oct 23 11:59:35 AM EDT 2021 -->
+<!-- Added by: joe, at: Sat Oct 30 10:02:42 AM EDT 2021 -->
 
 <!--te-->
 ## Purpose
@@ -70,13 +74,15 @@ Tools to download, remove ads, and synchronize subtitles.
 * synchronizing external subtitles with the audio track, and
 * removing ads from the subtitles.
 
-When necessary and preferred, the tools can be use manually for in-a-hurry situations and/or improving/correcting the automated decisions.
-
 There are some novel features that enhance the user experience including:
 
 * explicitly and intuitively scoring the subtitle synchronization so that the user (and tasks) know which subtitles need remediation,
-* caching "precious" information, like reference subtitles, so that multiple subtitle sync trials can be done quickly,
 * implementing both linear and segmented linear adjustments to subtitles for best chance at synchronization.
+* caching "precious" information, like reference subtitles, so that multiple subtitle sync trials can be done quickly,
+
+When necessary and preferred, the tools can be use manually for in-a-hurry situations and/or improving/correcting the automated decisions.
+
+If used in a completely manual mode (or separately automated), you can omit some configuration for searches and automation, specify full video paths to subshop, remove its cached information, etc.  In that case, you simply get the download, ad removal, and synchronization features w/o optimizations and automation support.
 
 ## Limitations
 Current limitations of these tools are:
@@ -109,6 +115,7 @@ NOTES:
 
 # Installation, Configuration, and Preparation
 ## Installation Procedure
+### Install subshop and its Python Dependencies
 Clone the project into, say, your home directory; and install into, say, your your directories:
 ```
     $ cd; git clone https://github.com/joedefen/subshop.git
@@ -123,13 +130,14 @@ Clone the project into, say, your home directory; and install into, say, your yo
     $ rm -rf .venv # cleanup virtualenv
 
 ```
-Having installed the code and its python dependencies,
-now install the non-python dependencies (e.g., `ffmpeg`, `ffprobe`, and the [VOSK Model](https://alphacephei.com/vosk/models)).
+### Install subshop's Non-Python Dependencies
+Install the non-python dependencies (e.g., `ffmpeg`, `ffprobe`, and the [VOSK Model](https://alphacephei.com/vosk/models)).
 ```
-    $ ./setup-sys-deps
+    $ subshop-sys-deps
 ```
-NOTE: `inst-sys-deps` will not work for every Linux variant, and you may need to whatever it cannot.
+NOTE: `subshop-sys-deps` will not work for every Linux variant, and you may need to vvary it logic for your system.  If required, copy `subshop-sys-deps` and modify to suit or manually apply its intent.
 
+### Intial Test of Your Install
 As a quick test, run `subshop dirs`; this shows the folders that `subshop` uses to store persistent data and it creates the default configuration file (which always requires adjustment).
 
 ## Configuration
@@ -174,7 +182,7 @@ The config will not load if:
 * the expected basic type of a parameter is incorrect (e.g., you change a string parameter to a numberic type).
 
 ## Verify the Installation
-After install, it would be a good idea to ensure a working setup and make adjustments.  Here are some commands to try.
+After install, it is advisable to ensure a working setup and make adjustments.  Here are some commands to try.
 
 * `subshop dirs`:  dumps the persistent data folder locations (if the configuration is loadable).
 * `subshop parse {video-folder}`:  parses the video filenames in the given folder and reports the those that may be problematic for automation (i.e., TV episodes w/o parsed season/episode numbers and movies w/o a parsed year). Running this w/o arguments (i.e., on your whole collection) might indicate ambiguities worth resolving before creating the cache directories).
@@ -191,32 +199,11 @@ If you are running on a system with limited resources for voice recognition, the
 
 Using `video2srt` is the preferred configuration. On a modern, typical desktop/server, voice recognition requires about 1s per minute of video (using, say, 6 threads).  If running signficantly longer than that, then `autosub` is likely preferrable.
 
-## Optional: Automating Download/Sync of Subtitles
-You may wish to add a daily cron job; the current version of the included `subs-cronjob` is:
-```
-#!/bin/bash
-# A recommended daily cronjob for subtitle maintenance
-# e.g.:
-# 13 0 * * * ~/.local/bin/subs-cronjob >~/.last-subs-cron-job 2>&1
+## Optional: Automating the Download and Synchronization of Subtitles
+You may wish to add a daily cron job defined in the configuration;
+the default (or current if modified) is shown by running `subshop daily -n`.
 
-# NOTE: cron messes with the PATH; assuming this script is in
-#  the subshop directory, add the script's directory to the PATH
-#  to pick up 'subshop'.
-SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-PATH="$PATH:${SCRIPT_DIR}"
-export PATH
-
-set -x
-    # update the todo list
-subshop todo
-    # try to download/sync subs for new videos (<30 days) AND a random selection
-subshop dos --todo
-    # try to fix poorly scored subs
-subshop redos --todo
-    # try to download reference files for videos lacking them
-subshop ref --todo
-```
-NOTES:
+The default includes these commands:
 * `subshop todo`: creates TODO lists for automation; it limits the size of each.
 * `subshop dos --todo`: performs download-and-sync on videos w/o subtitles that are on its TODO list.
 * `subshop redos --todo`: performs download-and-sync on videos with misfit subtitles that are on its TODO list.
@@ -303,12 +290,14 @@ Anyhow, we advise running `subshop parse` on your entire collection, and, if you
 # SUBSHOP Command Use
 ## Common terms and options
 ### subshop's Options, Sub-Commands, and Targets
-The subshop sub-commands often share terminology and conventions.  The typical form of a subcommand is:
+The `subshop` sub-commands often share terminology and conventions.  The typical form of a subcommand is:
 ```
     $ subshop -h # shows the available subcommands
     $ subshop {subcmd} -h # help for the given subcommand
     $ subshop {subcmd} [{options}] {targets} # typical use
 ```
+You can only run one `subshop` instance at a given time.  File locking is used to ensure exclusivity, and since file locking is imperfect, it may be necessary to remove the lock file shown when the lock cannot be obtained ONLY IF IN ERROR.  File locking protects the integrity of its various state files.  Generally, if a state file becomes corrupted, you should remove it (states files typically reside in `~/.cache/subshop/`).
+
 #### Selecting subshop "Options"
 Options are specified with `-{letter}` or `--{word}` arguments. In Python 3.7+, options and non-options can be intermixed; otherwise, you must place all sub-command options immediately after the {subcmd}.  Here are a few common options:
 
@@ -502,6 +491,7 @@ Honored options include:
 * -g/--grep {regex} - grep for the given {regex}
 * -G/--grep-regexes - grep the configured regexes.
 * -f/--force - update the subtitles by removing the matched captions.
+
 ### subshop parse {targets} # check parsability of video filenames
 Used to check the parsing accuracy of your video files; i.e.,
 
@@ -602,13 +592,22 @@ By default, `config_d=~/.config/subshop`, and the other three are set to `~/.cac
 e.g, setting the variable `SUBSHOP_CONFIG_D` overrides `config_d`.
 
 ### subshop tail # follow the log file
-subshop duplicates most of what it prints to its log file(s).
-This sub-command will run `less -F` on the current and previous log file
+`subshop` duplicates most of what it prints to its log file(s).
+The `tail` sub-command will run `less -F` on the current and previous log file
 (there are two files in the "rotation"). NOTE (as a `less -F` quickstart):
 
 * you start in "follow" mode at the current file.
 * `CTRL-C` will return to "normal" mode (and `F` returns to "follow" mode).
 * `:n` switches to the previous log and `:p` returns to the current log.
+
+### subshop daily # automation support
+Runs a set of commands typically run as `cron` job.  Use the configuration to alter the default command and elaborate the PATH if needed.
+
+Hints:
+* Use `subshop daily -n` to verify your commands.
+* Use `crontab -e` is set you cronjob to run daily (typically).
+* Since the cronjob prevents running manual `subshop` commands and may run for an extened peroid of time, choose a time that will not often interfere with manual use.
+
 
 ### subshop run {module} # run low-level module
 `subshop` includes a number of foundation modules and they can exercised using `subshop run`.  Some examples:

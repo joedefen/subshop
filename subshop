@@ -205,7 +205,7 @@ class SubShop():
     todo_cats = ('vip-dos', 'vip-ref-dos', 'dos', 'ref-dos', 'redos', 'defer-dos', 'defer-redos')
     subcmds =('run', 'dos', 'redos', 'sync', 'anal', 'zap', 'ref', 'imdb',
               'install', 'stat', 'tvreport', 'ignore', 'unignore', 'delay',
-              'grep', 'parse', 'todo', 'search', 'dirs', 'tail')
+              'grep', 'parse', 'todo', 'search', 'dirs', 'tail', 'daily')
     params = ConfigSubshop.get_params()
 
     def parse_args(self, args=None):
@@ -247,7 +247,7 @@ class SubShop():
                     help='select videos with at least minimum subt score')
             parser.add_argument('-M', '--max-score', type=int, default=None,
                     help='select videos with at most maximum subt score')
-        if self.cmd not in ('tvreport', 'install'):
+        if self.cmd not in ('tvreport', 'install', 'daily'):
             parser.add_argument('-o', '--only', default=None, choices=('tv', 'movie'),
                     help='select only for videos under tv or movie roots')
             parser.add_argument('-O', '--one', action='store_false', dest='every',
@@ -947,9 +947,10 @@ class SubShop():
             for idx in range(len(self.videos)):
                 self.gather_tvreport_video(idx)
             self.tvreport()
+        elif self.cmd == 'daily':
+            self.daily_cmd()
         elif self.cmd == 'dirs':
             ssd.runner(self.opts)
-
         elif self.cmd == 'tail':
             self.tail_cmd()
 
@@ -1061,6 +1062,37 @@ class SubShop():
         cmd = 'exec less +F' + args
         print('\n+', cmd)
         os.system(cmd) # no deposit, no return
+
+    def daily_cmd(self):
+        """Run a (normally) daily command."""
+            # fix the path
+        paths = os.environ['PATH'].split(':')
+        paths = [os.path.expanduser(p) for p in paths]
+        morepaths = [os.path.dirname(__file__)]
+        morepaths += SubShop.params.daily.pathdirs
+        for pathdir in morepaths:
+            pathdir = os.path.expanduser(pathdir)
+            if pathdir not in paths:
+                paths.append(pathdir)
+        os.environ['PATH'] = ':'.join(paths)
+
+        # indent all but shebang (i.e., 1st) line for print clarity
+        script = '\n   '.join(SubShop.params.daily.lines)
+
+        if self.opts.verbose or self.opts.dry_run:
+            lg.info('Set PATH to:', os.environ['PATH'])
+
+        if self.opts.dry_run:
+            lg.info('WOULD run:\n' + script + '\n')
+            exitcode = 0
+        else:
+            if self.opts.verbose:
+                lg.info('Running:\n' + script + '\n')
+            status = os.system(script)
+            exitcode = os.waitstatus_to_exitcode(status)
+            lg.info('daily script exitcode:', os.waitstatus_to_exitcode(status))
+
+        sys.exit(exitcode)
 
 
 class VideoPath():
@@ -1504,7 +1536,7 @@ if __name__ == "__main__":
             # pylint: disable=unused-variable
             sys.argv[0] = 'subshop'
             exclusively = None if (subshop.opts.dry_run or subshop.cmd in (
-                'anal', 'ref', 'tvreport')) else tc.Exclusively()
+                'anal', 'ref', 'tvreport', 'daily')) else tc.Exclusively()
 
         if not main_opts.profile:
             subshop.main_loop()
