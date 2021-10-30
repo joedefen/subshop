@@ -45,7 +45,7 @@ setup(
     author_email='joe@jdef.ga',
     url='https://github.com/joedefen/subshop',
     download_url='https://github.com/joedefen/subshop/releases/tag/v0.1.3',
-    scripts=['subshop', 'video2srt', 'subs-cronjob', 'subshop-sys-deps'],
+    scripts=['subshop', 'video2srt', 'subshop-sys-deps'],
     packages=['LibSub', 'LibGen'],
     classifiers=[
         'Development Status :: 4 - Beta',
