@@ -36,6 +36,22 @@ import LibGen.ToolChest as tc
 yaml = YAML(typ='safe')
 yaml.default_flow_style = False
 
+def waitstatus2exitcode(status):
+    """Convert wait status to exit code."""
+    try:
+        # not in all versions of python
+        exitcode = os.waitstatus_to_exitcode(status)
+    except Exception:
+        if os.WIFSIGNALED(status):
+            exitcode = -os.WTERMSIG(status)
+        elif os.WIFEXITED(status):
+            exitcode = os.WEXITSTATUS(status)
+        elif os.WIFSTOPPED(status):
+            exitcode = -os.WSTOPSIG(status)
+        else:
+            exitcode = 999
+    return exitcode
+
 class DownloadsDB(DataStore):
     """
     Specialized DataStore for download timestamps
@@ -203,7 +219,7 @@ class SubShop():
     downloads_db = None
     todo_db = None
     todo_cats = ('vip-dos', 'vip-ref-dos', 'dos', 'ref-dos', 'redos', 'defer-dos', 'defer-redos')
-    subcmds =('run', 'dos', 'redos', 'sync', 'anal', 'zap', 'ref', 'imdb',
+    subcmds = ('run', 'dos', 'redos', 'sync', 'anal', 'zap', 'ref', 'imdb',
               'install', 'stat', 'tvreport', 'ignore', 'unignore', 'delay',
               'grep', 'parse', 'todo', 'search', 'dirs', 'tail', 'daily')
     params = ConfigSubshop.get_params()
@@ -225,9 +241,9 @@ class SubShop():
                     help='ignore the presence of internal subtitles')
         if self.cmd in ('grep', ):
             parser.add_argument('-g', '--grep', default=None,
-                    help = "specify regex to 'grep'")
+                    help="specify regex to 'grep'")
             parser.add_argument('-G', '--grep-regexes', action="store_true",
-                    help = "GREP configured regexes (may use -g{pat} too)")
+                    help="GREP configured regexes (may use -g{pat} too)")
         if self.cmd in ('grep', 'dos', 'redos'):  # download()
             parser.add_argument('-i', '--interactive', action='store_true',
                 help='pick whether to remove ads' if self.cmd == 'grep'
@@ -688,7 +704,7 @@ class SubShop():
                 addvp('defer-dos', vp)
                 return False
             min_time = time.time() - 24*3600*SubShop.params.todo_params.vip_days
-            is_vip = bool(os.path.getmtime(vp.fullpath) >=  min_time) # young enuf to be VIP?
+            is_vip = bool(os.path.getmtime(vp.fullpath) >= min_time) # young enuf to be VIP?
 
             if vp.get_reference_srt():
                 addvp('vip-dos' if is_vip else 'dos', vp)
@@ -860,7 +876,7 @@ class SubShop():
             if 0 <= choice < len(tool.matches):
                 tool.commit_to_cache(tool.matches[choice])
         else:
-            lg.pr(tool.info_str(info, indent='    ',  w_overview=True))
+            lg.pr(tool.info_str(info, indent='    ', w_overview=True))
         return True
 
     def parse_cmd(self, fullpath):
@@ -1089,8 +1105,9 @@ class SubShop():
             if self.opts.verbose:
                 lg.info('Running:\n' + script + '\n')
             status = os.system(script)
-            exitcode = os.waitstatus_to_exitcode(status)
-            lg.info('daily script exitcode:', os.waitstatus_to_exitcode(status))
+            exitcode = waitstatus2exitcode(status)
+
+        lg.info('daily script exitcode:', exitcode)
 
         sys.exit(exitcode)
 
@@ -1189,7 +1206,7 @@ class VideoPath():
         caplist = self._get_caplist(self.get_srts()[0], make_analyzer=True)
         rcaplist = self._get_caplist(self.get_reference_srt())
         if verbosity is None:
-            verbosity=1 if self.subshop.opts.verbose else 0
+            verbosity = 1 if self.subshop.opts.verbose else 0
 
         if fallback_srt:
             fallback_caplist = self._get_caplist(fallback_srt, make_analyzer=True)
@@ -1269,7 +1286,7 @@ class VideoPath():
                 srts.pop(idx)
 
         except Exception as exc:
-            # pylint: disable=raise-missing-from
+            ## # xpylint: disable=raise-missing-from
             whynot = f'cannot move srts [{str(exc)}]'
             lg.err('FAILED: ', whynot)
             self.subshop.add_hist(self, f'download FAILED [{whynot}]')
@@ -1495,7 +1512,7 @@ class VideoPath():
     def _get_caplist(srt_path, make_analyzer=False):
         # lg.db('srt_path:', srt_path)
         caplist = None
-        with open(srt_path, 'r', encoding = 'utf-8', errors='ignore') as srt:
+        with open(srt_path, 'r', encoding='utf-8', errors='ignore') as srt:
             caplist = CaptionListAnalyzer(srt) if make_analyzer else CaptionList(srt)
         return caplist
 

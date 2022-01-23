@@ -813,8 +813,7 @@ class SubDownloader():
             try:
                 self.throttle.delay_as_needed()
                 result = SubDownloader.osd_server.LogIn(self.opts.username,
-                        hashlib.md5(self.opts.password[0:32].encode('utf-8')).hexdigest(),
-                        self.osd_language, 'opensubtitles-download 5.0')
+                        self.opts.password[0:32], self.osd_language, 'opensubtitles-download 5.1')
                 status = result['status']
             # except Exception:
             except ProtocolError as exc:
