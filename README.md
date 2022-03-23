@@ -1,72 +1,9 @@
 # SUBSHOP
-Tools to download, remove ads, and synchronize subtitles.
-<!--ts-->
-* [SUBSHOP](#subshop)
-   * [Purpose](#purpose)
-   * [Limitations](#limitations)
-   * [Required Web Credentials](#required-web-credentials)
-* [Installation, Configuration, and Preparation](#installation-configuration-and-preparation)
-   * [Installation Procedure](#installation-procedure)
-      * [Install subshop and its Python Dependencies](#install-subshop-and-its-python-dependencies)
-      * [Install subshop's Non-Python Dependencies](#install-subshops-non-python-dependencies)
-      * [Intial Test of Your Install](#intial-test-of-your-install)
-   * [Configuration](#configuration)
-   * [Verify the Installation](#verify-the-installation)
-   * [Optional: Install autosub](#optional-install-autosub)
-   * [Optional: Automating the Download and Synchronization of Subtitles](#optional-automating-the-download-and-synchronization-of-subtitles)
-* [Expected Video Folder Organization](#expected-video-folder-organization)
-      * [Video File Naming Conventions](#video-file-naming-conventions)
-      * [Description/Rationale for the Cached Files](#descriptionrationale-for-the-cached-files)
-* [SUBSHOP Command Use](#subshop-command-use)
-   * [Common terms and options](#common-terms-and-options)
-      * [subshop's Options, Sub-Commands, and Targets](#subshops-options-sub-commands-and-targets)
-         * [Selecting subshop "Options"](#selecting-subshop-options)
-         * [Selecting subshop "Targets"](#selecting-subshop-targets)
-      * [Reference Subtitles](#reference-subtitles)
-      * [Subtitle Score](#subtitle-score)
-   * [Sub-commands](#sub-commands)
-      * [subshop stat {targets}  # get basic subtitle status](#subshop-stat-targets---get-basic-subtitle-status)
-      * [subshop search {targets} # search for TV shows and/or movies](#subshop-search-targets--search-for-tv-shows-andor-movies)
-      * [subshop ref {targets} # generate reference subtitles](#subshop-ref-targets--generate-reference-subtitles)
-      * [subshop dos {targets}  # download-and-sync subtitles](#subshop-dos-targets---download-and-sync-subtitles)
-      * [subshop redos {target}  # re-download-and-sync subtitles](#subshop-redos-target---re-download-and-sync-subtitles)
-      * [subshop sync {target} # synchronize (yet again) subtitles](#subshop-sync-target--synchronize-yet-again-subtitles)
-      * [subshop anal {targets} # analyze the quality of subtitles](#subshop-anal-targets--analyze-the-quality-of-subtitles)
-      * [subshop todo {targets} # create TODO lists for maintenance](#subshop-todo-targets--create-todo-lists-for-maintenance)
-      * [subshop ignore {targets} # disable subtitle actions](#subshop-ignore-targets--disable-subtitle-actions)
-      * [subshop unignore {targets} # re-enable subtitle actions](#subshop-unignore-targets--re-enable-subtitle-actions)
-      * [subshop zap {targets} # remove external subtitles](#subshop-zap-targets--remove-external-subtitles)
-      * [subshop delay -D{secs} {targets}  # manually shift subtitle times](#subshop-delay--dsecs-targets---manually-shift-subtitle-times)
-      * [subshop grep {targets} # find patterns in subtitles](#subshop-grep-targets--find-patterns-in-subtitles)
-      * [subshop parse {targets} # check parsability of video filenames](#subshop-parse-targets--check-parsability-of-video-filenames)
-      * [subshop imdb {targets} # verify/update IMDB info for videos](#subshop-imdb-targets--verifyupdate-imdb-info-for-videos)
-      * [subshop tvreport # summarize missing subtitles for TV shows](#subshop-tvreport--summarize-missing-subtitles-for-tv-shows)
-      * [subshop inst {video}... {folder} # "install" videos](#subshop-inst-video-folder--install-videos)
-      * [subshop dirs # show subshop's persistent data directories](#subshop-dirs--show-subshops-persistent-data-directories)
-      * [subshop tail # follow the log file](#subshop-tail--follow-the-log-file)
-      * [subshop daily # automation support](#subshop-daily--automation-support)
-      * [subshop run {module} # run low-level module](#subshop-run-module--run-low-level-module)
-* [Remedying Missing/Misfit Subtitles](#remedying-missingmisfit-subtitles)
-   * [A. When You Need Better Fitting Subtitles](#a-when-you-need-better-fitting-subtitles)
-   * [B. When OpenSubtitles.org Does Not Have the Subtitles](#b-when-opensubtitlesorg-does-not-have-the-subtitles)
-   * [C. When No Subtitles Fit](#c-when-no-subtitles-fit)
-   * [D. When Internal Subtitles Fit Poorly](#d-when-internal-subtitles-fit-poorly)
-   * [E. When 'subshop' Falls Back to Less Desired Subtitles](#e-when-subshop-falls-back-to-less-desired-subtitles)
-   * [F. Manually Adjusting Subtitles](#f-manually-adjusting-subtitles)
-* [Theories of Operation](#theories-of-operation)
-   * [Choosing Subtitles to Download](#choosing-subtitles-to-download)
-   * [Synchronizing Subtitles](#synchronizing-subtitles)
-* [Related and Inspirational Projects](#related-and-inspirational-projects)
-   * [<a href="https://github.com/sc0ty/subsync">GitHub - sc0ty/subsync: Subtitle Speech Synchronizer</a>](#github---sc0tysubsync-subtitle-speech-synchronizer)
-   * [<a href="https://github.com/kaegi/alass">GitHub - kaegi/alass</a>](#github---kaegialass)
-   * [<a href="https://github.com/emericg/OpenSubtitlesDownload">GitHub - emericg/OpenSubtitlesDownload</a>](#github---emericgopensubtitlesdownload)
-   * [<a href="https://pypi.org/project/subnuker/" rel="nofollow">subnuker · PyPI</a>](#subnuker--pypi)
-   * [<a href="https://github.com/platelminto/parse-torrent-title">GitHub - platelminto/parse-torrent-title</a>](#github---platelmintoparse-torrent-title)
-   * [<a href="https://www.reddit.com/r/PleX/comments/m8g1km/super_fast_way_to_add_srt_subtitles_to_your_movies/" rel="nofollow">Super Fast Way to Add SRT Subtitles to Your Movies : PleX</a>](#super-fast-way-to-add-srt-subtitles-to-your-movies--plex)
+Tools to download, remove ads, and synchronize subtitles. NOTES:
 
-<!-- Added by: joe, at: Sat Oct 30 10:02:42 AM EDT 2021 -->
+* Sorry, this is a very large README; use GitHub's hamburger menu to see a table of contents for quicker reference. Someday, I may consider splitting the README or defering to a Wiki or whatever.
+* Sorry, this was formerly a PyPi.org project, but for so few users, the maintance was too high. Ignore any inavertent references to the PyPi project and releases built for it. That is, always update directly from GitHub.com.
 
-<!--te-->
 ## Purpose
 `subshop`, or "Subtitle Workshop", is a set of subtitle tools intended to mostly automate:
 
@@ -105,6 +42,7 @@ You are expected to obtain:
     * to get the token, see [Finding an authentication token / X-Plex-Token | Plex Support](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/)
 
 NOTES:
+
 * OpenSubtitles.org is fairly unreliable (e.g., you might find it down 10% of the day).
     * `subshop` attempts to use its unreliable/stingy resources efficiently;  the cache files are an important part of its strategy.
     * By default, `subshop` tracks your downloads and allows 160 downloads/day for automated downloads which leaves 40/day for manual downloads.
@@ -137,7 +75,7 @@ Install the non-python dependencies (e.g., `ffmpeg`, `ffprobe`, and the [VOSK Mo
 ```
 NOTE: `subshop-sys-deps` will not work for every Linux variant, and you may need to vvary it logic for your system.  If required, copy `subshop-sys-deps` and modify to suit or manually apply its intent.
 
-### Intial Test of Your Install
+### Initial Test of Your Install
 As a quick test, run `subshop dirs`; this shows the folders that `subshop` uses to store persistent data and it creates the default configuration file (which always requires adjustment).
 
 ## Configuration
@@ -169,15 +107,18 @@ And, you may wish to configure PLEX sooner rather than later (to be sure, PLEX i
   - plex-path-adj: "" # set -/{prefix} and/or +/{prefix} to make local path
 ```
 Specifically, for PLEX:
-* The plex-url-token is needed if you wish to search for video files using Plex vs the built-in search;  the bigger and slower your disk, the more likely Plex will be faster (and sometimes night-and-day faster).  Also, the Plex searches are "smarter". Also,
-    * Set `search-using-plex` to true if you wish that default.
-    * Set `plex-path-adj` appropriately if plex's view of the file system disagrees with the local view (and your are using Plex for searches).
+
+* The plex-url-token is needed if you wish to search for video files using Plex vs the built-in search;  the bigger and slower your disk, the more likely Plex will be faster (and sometimes fantastically faster).  And, the Plex searches are "smarter". Also, configure
+    * `search-using-plex` to true if you wish that default.
+    * `plex-path-adj` appropriately if plex's view of the file system disagrees with the local view (and you are using Plex for searches).
 
 **Tip**:
-* after making/writing changes to `subshop.yaml`, stay in the editor and run in `subshop run ConfigSubshop` in a subshell.
-* make a few changes, write, check, and repair; the more changes you make w/o checking, the harder to isolate the problem.
+
+* after making/writing only a few changes to `subshop.yaml`, **check** the YAML syntax by staying in the editor and running `subshop run ConfigSubshop` in a subshell or separate terminal window.
+* then iteratively until done, make a few more changes, write, check, and repair; the more changes you make w/o checking, the harder to isolate the problem (and if you leave your edit, you cannot use its "undo" feature to mostly easily recitify problems).
 
 The config will not load if:
+
 * there are YAML syntax errors, or
 * the expected basic type of a parameter is incorrect (e.g., you change a string parameter to a numberic type).
 
@@ -194,16 +135,17 @@ After install, it is advisable to ensure a working setup and make adjustments.  
 
 ## Optional: Install `autosub`
 If you are running on a system with limited resources for voice recognition, then it may be more practical to use [autosub](https:/github.com/agermanidis/autosub). To to so:
+
 * follow the `autosub` install procedure (note it uses python2/pip2).
 * in `subshop.yaml`, change the `reference-tool` to `autosub` (rather than the included `video2srt` script).
 
 Using `video2srt` is the preferred configuration. On a modern, typical desktop/server, voice recognition requires about 1s per minute of video (using, say, 6 threads).  If running signficantly longer than that, then `autosub` is likely preferrable.
 
 ## Optional: Automating the Download and Synchronization of Subtitles
-You may wish to add a daily cron job defined in the configuration;
-the default (or current if modified) is shown by running `subshop daily -n`.
+You may wish to add a daily cron job defined in the configuration; the default (or current if modified) is shown by running `subshop daily -n`.
 
 The default includes these commands:
+
 * `subshop todo`: creates TODO lists for automation; it limits the size of each.
 * `subshop dos --todo`: performs download-and-sync on videos w/o subtitles that are on its TODO list.
 * `subshop redos --todo`: performs download-and-sync on videos with misfit subtitles that are on its TODO list.
@@ -211,6 +153,7 @@ The default includes these commands:
 
 # Expected Video Folder Organization
 TV series and movies should be organized similar to this:
+
 ```
 /TV Series Root1/  # there can be many tv root folders
     Alpha Show/
@@ -235,7 +178,7 @@ TV series and movies should be organized similar to this:
             ...
         ...
 /Movie Root1/  # there can be many movie root folders
-    Movies for Mom/ there can be many movie group folders
+    Movies for Mom/ # there can be many movie group folders
         Movie.Alpha.2020.anything.mkv # .ext may vary
         Movie.Alpha.2020.anything.en07.srt # .en07.srt may vary
         Movie.Alpha.2020.anything.cache/ # subshop cache info
@@ -249,6 +192,7 @@ TV series and movies should be organized similar to this:
             ...
 ```
 NOTES:
+
 * If your video collection is compatible with either PLEX or Emby, you likely have a suitable organization already.
 * You supply the video files and existing external subtitles (optionally, with `.en.srt` or `.srt` extensions) and the basic folder hierarchy that:
     * separates TV series and movies at a high level.
@@ -256,6 +200,7 @@ NOTES:
     * places TV episodes into season folders or not (consistently per TV show).  If you have season folders, then "Season 00/" and "Specials/" folders indicate TV specials.
     * places movies in subfolders with the video filenames less extensions or not (consistency is NOT required even withing one group).
 * `subshop` adds subtitles files and cached information; all its cached data is in `.cache` folders except for TV series `omdbinfo.yaml` files.
+
 ### Video File Naming Conventions
 Video filenames should be "parsable" by SubShop (see `subshop parse` subcommand) meaning:
 
@@ -273,6 +218,7 @@ Anyhow, we advise running `subshop parse` on your entire collection, and, if you
 
 ### Description/Rationale for the Cached Files
 `subshop` creates a number of cached files; specifically:
+
 * `omdbinfo.yaml`: caches/stores the IMDB ID and other info gathered from TMDb (The Movie Database).  Caching this information makes it "sticky" so that retrying a subtitle search for a better fit is more reliable.
 * `probeinfo.yaml`: caches selected info from `ffprobe` to avoid the second or so per video file to determine if it has embedded subtitles, has an English audio stream, etc.
 * `*.REFERENCE.srt` or `*.AUTOSUB.srt`: caches the (very expensive) audio-to-text conversion needed to sync / score the fit of subtitles; having this makes finding better subtitles, etc., much, much faster.
@@ -340,6 +286,7 @@ You may restrict targets to TV episodes or movies with the option:
 
 ### Reference Subtitles
 Reference subtitles are generated (and cached) by the external tool, [autosub](https:/github.com/agermanidis/autosub), or the internal tool, `video2srt`.
+
  * Reference subtitles are generally unusable as "real", external subtitles because they have too many omissions/errors.
  * But, reference subtitles are generally good enough to correlate with external subtitles to synchronize those with the video;
  * Reference are also used to judge how well subtitles are synced with the video.
@@ -358,6 +305,7 @@ Subtitles are given a score from 1 to 19 that represents:
 If the net subtitle score is not between 1 and 19, then it is coereced within.  For filtering purposes, an unscored subtitle is given an arbitrary, large score (e.g., 100) but that score is not store.
 
 **Filtering on score.** Some sub-commands honor options:
+
 * `-m/--min-score {score}`: filter for videos with subtitles only as poor as the given floor
 * `-M/--max-score {score})`: filter for videos with subtitles no worse than then given score.
 
@@ -465,15 +413,18 @@ Delays the subtitles by the amount given in the -D/--delay-secs option. A negati
 One use case is to adjust English subtitles for a foreign language video since `subshop` does not support non-English language audio.
 
 Your media player likely has a mechanism to ascertain the delay manually; e.g.:
+
 *  **mpv player**: 'z' adds 100ms delay; 'Z' subtracts 100ms delay; pass the cumulative amount as the -D value.
 *  **VLC media player**: 'h' adds 50ms delay and 'g' subtracts 50ms delay; pass the cumulative amount as the -D value.
 *  **PLEX web player**: select "Playback Settings / Subtitle Offset" and then click buttons to adjust the offset by +50ms or -50ms; pass the **negative of** the cumulative offset as the -D value.  Note that PLEX on Roku does not support subtitle offset adjustment.
 
 Honored options include:
+
 * `-D/-delay-secs`: the amount of time to delay the subtitles; if the absolute value is not under 50, then the time is presumed to be in milliseconds.  Setting `-D0.0` makes sense if desiring only to rerun the ad detection and removal.
 * `-i/--interactive`: if ads are detected, you get a chance to allow/deny their removal.
 
 **Beware**:
+
 * Avoid specifying multiple targets since the same delay will be applied to every target.
 * Ads will be removed again; if your ad detection parameters are changed, then more ads may be removed.
 * This command overwrites the subtitle file.
@@ -483,11 +434,13 @@ Honored options include:
 Used to verify what ads would be removed if run on the current, external subtitles for the targeted videos, and optionally remove the matching subtitles.  With `-g`, you can specify an ad hoc pattern;  with `-G`, you can apply the configured regexes.  You can specify both `-g` and `-G`, and if you specify neither, then `-G` is assumed.
 
 Suggested uses:
+
 * Use `-g` to search for a possible pattern to configure if it is a good identifier of ads (i.e., very few or no false positives).
 * Use `-G` to determine what ads would be removed if (presumably) updated, configured regexes were applied.
 * Use `-fG` to remove ads per the current set of configured regexes.
 
 Honored options include:
+
 * -g/--grep {regex} - grep for the given {regex}
 * -G/--grep-regexes - grep the configured regexes.
 * -f/--force - update the subtitles by removing the matched captions.
@@ -500,17 +453,16 @@ Used to check the parsing accuracy of your video files; i.e.,
 
 *It not necessary that **EVERY** video file is parsable*, but unparseable videos will impair both automated and manual download tasks. Less "fits-the-pattern" episodes (e.g., "special" episodes, double episodes, etc.) are problematic no matter how named.  You can decide to rename parsing exceptions or not.
 
-
 * `-v/--verbose`: shows how every target is parsed; by default, only likely errors are shown.
 
 ### subshop imdb {targets} # verify/update IMDB info for videos
 Views, sets, and corrects the IMDB information for the TV show or movie. For downloading the correct subtitles automatically, having a correct IMDB association reduces error considerably.
 
-
 * `-i/--interactive`: shows the IMDB information and gives you opportunity to update it.
 * `-n/--dryrun`: use to see whether the IMDB is cached or not.
 
 To generate a list of TV shows / movies w/o cached IMDB info, run:
+
 * `subshop imdb -n | grep -B1 create`
 
 Here is an example of setting IMDB info:
@@ -529,6 +481,7 @@ Here is an example of setting IMDB info:
 
 ```
 At this point, you can:
+
 * Enter "0" to quit trying.
 * Or type in a new search; e.g., "spirited away?" or "tt0245429?".
     * If the search string is simply and IMDB ID, then it actually does a lookup.
@@ -546,6 +499,7 @@ For this video, "spirited away?" is ineffective, but entering the IMDB ID yeilds
 >> Enter (0-1) [add "p" for poster] -OR- <New-Search-Phrase>?: 
 ```
 Now the choices are:
+
 * Enter "1" to set the IMDB per that line.
 * Enter "1p" to launch your image viewer to show the poster.
 * Enter "0" to quit w/o setting the IMDB information.
@@ -554,8 +508,7 @@ Now the choices are:
 In this (hard) case, "Spirited Away" is the English title, but that is not stored in the IMDb/OMDb API databases.  Hence, we manually search on imdb.com where the search engines are more powerful and complete.  When we visit the corresponding page, the IMDB ID (i.e,. ttXXXXXXX) is in the URL.
 
 ### subshop tvreport # summarize missing subtitles for TV shows
-Create a summary report for TV shows of episodes w/o subtitles.
-It may look like:
+Create a summary report for TV shows of episodes w/o subtitles.  It may look like:
 ```
 ==== Missing Subtitle Report:
         Prime Suspect (1991): 13-1/15 2s2 2s3 3-1s4 2s5 2s6 2s7
@@ -650,6 +603,7 @@ When given the dialog to choose subs:
         
 ## B. When OpenSubtitles.org Does Not Have the Subtitles
 If you cannot find usable subtitles on OpenSubtitles.org, then you can look for them on other sites; IMHO, this it is quite uncommon to only find them elsewhere.
+
 * if you manually download some, place them in the `.cache` folder of corresponding video and they become available in the download dialog (you need to remember the names if there is are several competitors).
 * some (of many) alternative sites to find subtitles are:
     * https://www.addic7ed.com
@@ -658,6 +612,7 @@ If you cannot find usable subtitles on OpenSubtitles.org, then you can look for 
 
 ## C. When No Subtitles Fit
 For tough problems,  rerun the sync: `subshop sync {target}`
+
 * Reported anomalies might help diagnose the problem.
 * Generally, you'll see a summary line like: `OK  dev 0.92s pts 131 [...]`. Take special note of:
     * `dev 0.92s` - meaning the standard deviation of the subtitle timing error is 0.92s.  Generally, errors over 0.8s are annoyingly bad.
@@ -731,6 +686,7 @@ Here is an example (`subshop redos -i xirtam`) with explanations (btw, the title
 >> Pick (0-61) -OR- <Subt-Srch>/ -OR- <IMDB-Srch>? -OR- ignore!:
 ```
 NOTES:
+
 * For [1], "By:Id,Tt,Yr,HsDu8" means that the score was boosted by matching the IMDB ID / title / year / hash, and matching the duration very well.
     * "132" is the total score.
     * "\*" denotes the subtitle file is already download and in the cache.
@@ -742,7 +698,6 @@ NOTES:
     * By entering "8", you can extract the embedded subtitles and sync them.  So, in this case, it was not necessary to download subtitles in the first place (but it was done so as an example.)
     * By entering "d", you can see the next 16 search results. If the results are scoring on several criteria, seeing more than 16 is rarely productive.
     * By entering "u" after entering "d", you can see the previous 16 results.
-
 
 ## Synchronizing Subtitles
 The module, `SubFixer.py`, manages the synchronization of subtitles. The steps of synchronizing subtitles at a high level are:

@@ -148,7 +148,7 @@ class TmdbTool:
             lg.warn('VideoParser() expected TV episode but parsed:', parsed.mini_str(),
                     '\n    ', os.path.basename(path))
         phrase = parsed.title if parsed.title else os.path.basename(path)
-        if self.subcache.is_tvdir and self.subcache.omdb_dpath:
+        if self.subcache and self.subcache.is_tvdir and self.subcache.omdb_dpath:
             # getting the phrase/title from the show folder is more consistent and
             # better than from the video file
             phrase = os.path.basename(self.subcache.omdb_dpath)
