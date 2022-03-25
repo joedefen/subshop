@@ -1,8 +1,6 @@
 # SUBSHOP
 Tools to download, remove ads, and synchronize subtitles.
 
-> NOTE: this was formerly a PyPi.org project also called `subshop`, but for so few users, the maintance was too high.
-
 ### Purpose
 `subshop`, or "Subtitle Workshop", is a set of subtitle tools intended to mostly automate:
 
@@ -21,19 +19,26 @@ When necessary and preferred, the tools can be used manually for in-a-hurry situ
 
 If used in a completely manual mode (or separately automated), you can omit some configuration for searches and automation, specify full video paths to subshop, remove its cached information, etc.  In that case, you simply get the benefit of the download, ad removal, and synchronization features w/o optimizations and automation support.
 
+> NOTE: this was formerly a PyPi.org project also called `subshop`, but for so few users, the maintance was too high.
+
 ### Limitations
 Current limitations of these tools include:
 
-* only **English** subtitles and audio tracks are supported,
-* only **srt** subtitles are supported
-* for best / most automated operation, movies and TV episodes must be organized in a PLEX-like directory structure,
-* auxiliary information is stored (mostly) in a "cache" directory, one per video file,
+* only **English** subtitles and audio tracks are supported.
+* only **srt** subtitles are supported.
+* for best / most automated operation, movies and TV episodes must be organized in a PLEX-like directory structure.
+* auxiliary information is stored (mostly) in a "cache" directory, one per video file.
 * must run on a modern Linux (or sufficient Linux comparable) operating system.
 * Python 3.6 is the bare minimum, but Python 3.8+ is best.
 * Python 2.x is required if you choose to use [autosub](https:/github.com/agermanidis/autosub) for voice recognition (rather than the default [VOSK](https://alphacephei.com/vosk/)).
 
+---
+
+---
+
 ### Example Run of Downloading and Syncing Subtitles
-*BTW, In this example, the name of show was altered to avoid stray search engine hits.*
+
+Here is an annotate example of perhaps the most commonly used `subshop` subcommand. For a video without existing internal or external subtitles, `subshop` is selects and downloads a candidate subtitle file, then checks its fit, and, if needed and possible, adjusts the subtitles for a better fit. *BTW, In this example, the name of show was altered to avoid stray search engine hits.*
 ```
 $ subshop dos gilless girls 1x2
 
@@ -78,9 +83,9 @@ Explanation:
 * The command, `subshop dos gilless girls 1x2`, means download-and-sync subtitles for Gilless Girls, Season 1, Episode 2.
 * `subshop` finds the video file based on the description.
 * `subshop` fetches the list of available subtitles from OpenSubtitles.org, picks one that seems to be the best fit, and downloads it.
-* `subshop` runs VOSK speech recognition to create a "reference" subtitle file requiring nearly 30s in this case; these are poor subtitles, per se, but they are used to fix the timing of downloaded subtitles.
-* `subshop` correlates the reference subtitles to the downloaded subtitles and finds 450 points of where the text seems to agree, and does a linear fit of the downloaded subs (which results in shifting the subs by about -2304ms and  shifting the speed by 0.123%); after adjustment, the linear fit has an error (i.e., standard deviation or "dev") of 445ms (which is not too bad).
-* `subshop` attempts to find "rifts" (or points of discontinuity probably caused by trimming commercials differently) in the linear fit; it finds 5 rifts (and it fixes overlaps the rift-adjust subs).
+* `subshop` runs VOSK speech recognition to create a "reference" subtitle file requiring nearly 30s in this case; reference subtitles are too inaccurate to use as "real" subtitles, per se, but reference subtitles are very useful for fix the timing of downloaded, real subtitles.
+* `subshop` correlates the reference subtitles to the downloaded subtitles and finds 450 points of where the text seems to agree, and it does a linear fit of the downloaded subs (which results in shifting the subs by about -2304ms and adjusting the speed by 0.123%); after adjustment, the linear fit has an error (i.e., standard deviation or "dev") of 445ms (which is suggested a good fit).
+* `subshop` then attempts to find "rifts" (or points of discontinuity probably caused by cutting commercials differently) in the linear fit; it finds 5 rifts (and it fixes overlaps the rift-adjust subs).
 * `subshop` determines the error of the rift adjusted subs as 404ms (i.e., a slight improvement).
 * `subshop` decides to keep the linear adjusted subs (if rift adjusted subs had been sufficiently better, they would have been chosen), and it places them "next" to the video with a compatable name (not shown).
 
@@ -200,9 +205,8 @@ Bottom line is that it works, just not sufficiently well. The module, `SubDownlo
 * false positives (i.e., removing "valid" captions) seem to occur mostly in the middle of the video and there is no protection for caption in the middle.
 
 ## [GitHub - platelminto/parse-torrent-title](https://github.com/platelminto/parse-torrent-title)
-This fine project parses video file names to the "ultimate" finding
-every imaginable attribute inferrable from its name.
-Its shortcomings per my experience include:
+This fine project parses video file names to the "ultimate" finding every imaginable attribute inferrable from its name.  Its shortcomings, per my experience, include:
+
 * poor coverage for some fairly common naming conventions including {season}x{episode} tags and various double episode tags.
 * very slow due to its overkill for the needs of this project.
 

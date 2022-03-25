@@ -57,5 +57,17 @@ If subshop falls back to "undesired" subtitles when trying to replace them, then
 * With the current subtitles out of the way, run whatever command will install the desired subtitles; often that is `subshop redos -i`.
 * Note that `subshop` will keep existing subtitles (which it calls the "fallback") if the new subs do not score sufficiently better than the existing.
 
-## F. Manually Adjusting Subtitles
-For subtitle/language cases that `subshop` does not handle, (e.g., for English subs and foreign audio), then many players allow shifting (i.e., delaying or advancing the subtitles by a constant shift. See the `subshop delay` subcommand for details.
+## F. When Subtitles Need a Manual Time Shift
+For subtitle/language cases that `subshop` does not handle, (e.g., foreign audio with English subs), then many players allow shifting (i.e., delaying or advancing the subtitles by a constant shift). Using the best shift value that you can determine, apply that value for a permanent fix with `subshopt delay`.  See the `subshop delay` subcommand for details.
+
+## G. When There are too Many Annoying Ads
+If your ad filters are failing to remove annoying ads, then:
+
+* run `subshop grep -g '{get-rid-of-me-pattern}'` and ensure there are few or no false positives.
+* edit `subshop.yaml` and add the pattern to either the
+
+    * `limited-regexes` section if matches only occurs in the first or last two minutes.
+    * `global-regexes` section if matches are not restrict the the first and last two minutes.
+
+* run `subshop grep -G` to test your configuration, ensuring there are few or no false positives.
+* run `subshop grep -fG` to purge the newly detected subtitles.

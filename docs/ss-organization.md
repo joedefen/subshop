@@ -63,7 +63,7 @@ Video filenames should be "parsable" by SubShop (see `subshop parse` subcommand)
     * if the year is not present, `subshop` may work well.
     * if the year is wrong, `subshop` likely will not work well.
     
-`subshop` uses its own parser, `VideoParser.py` to parse the names. Within the script, you can verify what is likely to work and what is not by looking for:
+`subshop` uses its own parser, `VideoParser.py` to parse the names. View `VideoParser.py` to you can verify what is likely to work and what is not; look for:
 
 * `regexes`: examine the regular expressions and comments
 * `tests_yaml`: look at the tests (mostly hard cases) and the parsing results; notice that a few cases near the end are "failures".

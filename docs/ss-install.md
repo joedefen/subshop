@@ -17,7 +17,7 @@ NOTES:
     * Doing most of your downloads as automated, background tasks removes most of the agony of opensubtitles.org's downtime.
 * If you paid for an OpenSubtitles.org VIP account, you are allowed 1000 downloads per day.
     * With a quota of 1000, you match wish to tweak settings and options to use more than the 200 that `subshop` assumes if you have a large backlog.
-* PLEX is used very narrowly (i.e., for searching); if you have a large collection and/or very limited CPU/RAM resources, you can configure `subshop` to use PLEX for its searches which, for some installs, reduces searches for videos from, say, 10 minutes to nearly instantaneous.
+* `subshop` uses PLEX is used very narrowly (i.e., for searching); if you have a large collection and/or very limited CPU/RAM resources, you can configure `subshop` to use PLEX for its searches which, for some installs, reduces searches for videos from, say, 10 minutes to nearly instantaneous.
 
 ### 2. Install subshop and its Python Dependencies
 First, clone the project into, say, your home directory:
@@ -44,13 +44,13 @@ Install the non-python dependencies (e.g., `ffmpeg`, `ffprobe`, and the [VOSK Mo
 ```
     $ subshop-sys-deps
 ```
-NOTE: `subshop-sys-deps` will not work for every Linux variant, and you may need to vvary it logic for your system.  If required, copy `subshop-sys-deps` and modify to suit or manually apply its intent.
+NOTE: `subshop-sys-deps` will not work for every Linux variant, and you may need to vary its logic for your system.  If required, copy `subshop-sys-deps` and (1) modify to suit your situation or (2)manually apply its intent.
 
 ### 4. Seed Your Configuration File
-As a quick test of your install and to create the default configuration file, run `subshop dirs`; this shows the folders that `subshop` uses to store persistent data and it creates the default configuration file (which always requires adjustment).
+As a quick test of your install and to create the default configuration file, run `subshop dirs`; this shows the folders that `subshop` uses to store persistent data, and, if absent, it creates the default configuration file (which always requires adjustment for your credentials and video file organization).
 
 ### 5. Configure subshop
-The configuration is stored in `subshop.yaml`, and, by default, in the `~/.cache/subshop/` folder.
+The configuration is stored in `subshop.yaml`, and, by default, it resides in the `~/.cache/subshop/` folder.
 
 You'll need to edit `subshop.py` and:
 
@@ -61,7 +61,7 @@ You'll need to edit `subshop.py` and:
 >
 >* `autocmd FileType yaml setlocal ts=2 sts=2 sw=2 expandtab`
     
-The essential configuration to update within `subshop.py` is:
+The essential configuration to update within `subshop.py` are these lines:
 ```
   - /YOUR-TV-ROOTDIRS
   - /YOUR-MOVIE-ROOTDIRS
@@ -78,6 +78,8 @@ Note:
 * The Movie Database API is used to ascertain and save IMDB IDs for accurate downloads.  
 * The OpenSubtitles.org user/password is required for downloading subtitles.
 
+### 5.1 Optionally, Configure PLEX
+
 And, you may wish to configure PLEX sooner rather than later (to be sure, PLEX is NOT required); otherwise, disable it.
 ```
   - plex-url-token: YOUR-PLEX-URL YOUR-PLEX-TOKEN # if empty string, plex is not enabled
@@ -91,15 +93,16 @@ Specifically, for PLEX:
     * `search-using-plex` to true if you wish that default.
     * `plex-path-adj` appropriately if plex's view of the file system disagrees with the local view (and you are using Plex for searches).
 
->**Tip**: Avoid making changes to the YAML file w/o the ability to back out errors quickly can certainly. For example,
->
->* after making/writing only a few changes to `subshop.yaml`, **check** the YAML syntax by staying in the editor and running `subshop run ConfigSubshop` in a subshell or separate terminal window.
->* then iteratively until done, make a few more changes, write, check, and repair.
-
+### 5.2 Take Care to Prevent "Breaking" Your Configuration
 Beware that your `subshop.yaml` will not load if:
 
 * there are YAML syntax errors, or
 * the expected basic type of a parameter is incorrect (e.g., you change a string parameter to a numeric type).
+
+>**Tip**: Avoid making changes to the YAML file w/o the ability to back out errors quickly can certainly. Best practice may be:
+>
+>* after making/writing only a few changes to `subshop.yaml`, **check** the YAML syntax by staying in the editor and running `subshop run ConfigSubshop` in a subshell or separate terminal window.
+>* then iteratively until done, make a few more changes, write, check, and repair.
 
 ## 6. Verify the Installation
 After install, it is advisable to ensure a working setup and make adjustments.  Here are some commands to try.
