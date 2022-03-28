@@ -9,7 +9,7 @@ Listed are the download selection criteria, defaults weights, "tag", and brief d
 * `imdb-match: 20` (Id) --  given if IMDB ID matches;  not as strong a factor as you might think.
 * `season-episode-match: 30` (Ep) -- if parsed filename season/episode matches
 * `year-match: 20` (Ep) -- if parsed filename year matches
-* `title-match: 10` (Tt) -- given if the parsed filename title matches the show name or movie title (after some normaization of case, special characters, etc.)
+* `title-match: 10` (Tt) -- given if the parsed filename title matches the show name or movie title (after some normalization of case, special characters, etc.)
 * `name-match-ceiling: 9` -- given a scaled value depending on the similarity of the video filename to the subtitle filename.
 * `hearing-impaired: 2` -- given if marked hearing impaired (for more complete subtitles)
 * `duration-ceiling: 40` (Du8,...,Du1) -- assigned a scaled score based how the closeness of the duration of the video and subtitles (allowing for silence during trailing credits). Du8 indicates a high score; when the duration is 25% off or more, the subtitle is credit no duration score.

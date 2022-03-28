@@ -91,7 +91,7 @@ Specifically, for PLEX:
 
 * The plex-url-token is needed if you wish to search for video files using Plex vs the built-in search;  the bigger and slower your disk, the more likely Plex will be faster (and sometimes fantastically faster).  And, the Plex searches are "smarter". Also, configure
     * `search-using-plex` to true if you wish that default.
-    * `plex-path-adj` appropriately if plex's view of the file system disagrees with the local view (and you are using Plex for searches).
+    * `plex-path-adj` appropriately if PLEX's view of the file system disagrees with the local view (and you are using Plex for searches).
 
 ### 5.2 Take Care to Prevent "Breaking" Your Configuration
 Beware that your `subshop.yaml` will not load if:
@@ -111,8 +111,8 @@ After install, it is advisable to ensure a working setup and make adjustments.  
 * `subshop parse {video-folder}`:  parses the video filenames in the given folder and reports the those that may be problematic for automation (i.e., TV episodes w/o parsed season/episode numbers and movies w/o a parsed year). Running this w/o arguments (i.e., on your whole collection) might indicate ambiguities worth resolving before creating the cache directories).
 * `subshop stat {video-folder}`:  dumps the status of the videos in the given folder. With no arguments, it will run on your entire collection; depending on the size of your collection, the first run may be much slower than later run because `ffprobe` information will be cached for subsequent runs.
 * `subshop dos {subless-video-file}`: given a video file w/o internal or external subtitles, tries to download and sync subtitles. This should test that your credentials for OpenSubtitles.org and TheMovieDatabase.com are working, that your voice recognition is working, etc.
-* `subshop redos -i {video-file-with-external-subs}`:  interatively, attempts to download and sync replacement subtitles.  You are given a chance to fix a incorrect IMDB identification, select an alternative subtitle to try, and after synchronization, try again on move on.
-* `subshop sync {video-file-with-external-subs}`: run the synchronization logid on the given video and its subtitles, make adjustments, and report the goodness of fit.
+* `subshop redos -i {video-file-with-external-subs}`:  interactively, attempts to download and sync replacement subtitles.  You are given a chance to fix a incorrect IMDB identification, select an alternative subtitle to try, and after synchronization, try again on move on.
+* `subshop sync {video-file-with-external-subs}`: run the synchronization logic on the given video and its subtitles, make adjustments, and report the goodness of fit.
 * `subshop todo`: creates various TODO lists for automating process of getting will fitted subtitles.  Depending on the size of collection, this may take quite a while. Similar to the `subshop stat` trial above, you can pass in a {video-folder} to limit the scope of the TODO lists and cut the time for the initial trial.
 
 ---
@@ -125,7 +125,7 @@ If you are running on a system with limited resources for voice recognition, the
 * follow the `autosub` install procedure (note it uses python2/pip2).
 * in `subshop.yaml`, change the `reference-tool` to `autosub` (rather than the included `video2srt` script).
 
-Using `video2srt` is the preferred configuration. On a modern, typical desktop/server, voice recognition requires about 1s per minute of video (using, say, 6 threads).  If running signficantly longer than that, then `autosub` is likely preferrable.
+Using `video2srt` is the preferred configuration. On a modern, typical desktop/server, voice recognition requires about 1s per minute of video (using, say, 6 threads).  If running signficantly longer than that, then `autosub` is likely preferable.
 
 ## Optional: Automating the Download and Synchronization of Subtitles
 You may wish to add a daily cron job defined in the configuration; the default (or current if modified) is shown by running `subshop daily -n`.
@@ -135,4 +135,4 @@ The default "daily" job includes these commands:
 * `subshop todo`: creates TODO lists for automation; it limits the size of each.
 * `subshop dos --todo`: performs download-and-sync on videos w/o subtitles that are on its TODO list.
 * `subshop redos --todo`: performs download-and-sync on videos with misfit subtitles that are on its TODO list.
-* `subshop ref --todo`: creates "reference" subtitles for videos w/o substitles or reference subtitles.  Having the reference subtitles speeds subsequent manual or automated  subtitle operations.
+* `subshop ref --todo`: creates "reference" subtitles for videos w/o subtitles or reference subtitles.  Having the reference subtitles speeds subsequent manual or automated  subtitle operations.

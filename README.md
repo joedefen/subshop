@@ -87,7 +87,7 @@ Explanation:
 * `subshop` correlates the reference subtitles to the downloaded subtitles and finds 450 points of where the text seems to agree, and it does a linear fit of the downloaded subs (which results in shifting the subs by about -2304ms and adjusting the speed by 0.123%); after adjustment, the linear fit has an error (i.e., standard deviation or "dev") of 445ms (which is suggested a good fit).
 * `subshop` then attempts to find "rifts" (or points of discontinuity probably caused by cutting commercials differently) in the linear fit; it finds 5 rifts (and it fixes overlaps the rift-adjust subs).
 * `subshop` determines the error of the rift adjusted subs as 404ms (i.e., a slight improvement).
-* `subshop` decides to keep the linear adjusted subs (if rift adjusted subs had been sufficiently better, they would have been chosen), and it places them "next" to the video with a compatable name (not shown).
+* `subshop` decides to keep the linear adjusted subs (if rift adjusted subs had been sufficiently better, they would have been chosen), and it places them "next" to the video with a compatible name (not shown).
 
 In this case, the subtitles had a 2.3s error that was corrected with a simple linear adjustment; when rift-adjusted subtitles are selected when they make a big enough improvement to compensate for their sometimes unavoidable, very annoying time adjustment errors at each rift.
 
@@ -151,9 +151,9 @@ After adjustment, these are pretty good fitting subs.  If they were poor fitting
     * `subshop todo {targets}` - creates TODO list for automated maintenance
     * `subshop daily` - performs the daily automation tasks
     * `subshop inst {targets}` - "installs" videos (e.g., in a temporary download area) into its proper place in the video directory tree.
-    * `subshop dirs` - show subshops perdistent data directories
+    * `subshop dirs` - show subshop's persistent data directories
     * `subshop tail` - view for the `subshop` log
-    * `subshop run {module}` - runner for the expercising the low-level modules.
+    * `subshop run {module}` - runner for the exercising the low-level modules.
 
 ## Remedies for Poorly Fitting Subtitles
 [Remedying Missing/Misfit Subtitles](./docs/ss-remedies.md) provides how to approach the problem of fixing bad and missing subs.
@@ -175,7 +175,7 @@ We tried each of the tools below (and many more) before deciding to create yet-a
 ## [GitHub - sc0ty/subsync: Subtitle Speech Synchronizer](https://github.com/sc0ty/subsync)
 This excellent project is one of the best subtitle synchronizers that I tried; some shortcomings per my experience were:
    * for linux install, requires `snap` which I avoid do its overheads/complications.  Fortunately, there are docker adaptations (e.g.,) [domainvault/subsync - Docker Image | Docker Hub](https://hub.docker.com/r/domainvault/subsync)) which I used successfully w/o installing `snap`.
-* it does not cache reference subtitles so every sychronization is costly
+* it does not cache reference subtitles so every synchronization is costly
 * it does not publish fit metrics needed to just judge the quality of the synchronization.
 * it only does linear fits (i.e., a single linear regression to find best offset and speed adjustment).
 
@@ -184,8 +184,8 @@ The bottom line is that `subsync` does an admirable job for subtitles that can b
 ## [GitHub - kaegi/alass](https://github.com/kaegi/alass)
 This excellent project can adjust subtitles with rifts, and it often does a slam-dunk job of doing so.  It is language agnostic which is a huge plus for non-English users. Its shortcomings per my experience:
 
-* when it fails (which was too often), it fails miserably and often messes up the subtitles to an irrepariable state.
-* it does not cache reference information so every sychronization is costly
+* when it fails (which was too often), it fails miserably and often messes up the subtitles to an irreparable state.
+* it does not cache reference information so every synchronization is costly
 * it does not publish fit metrics needed to just judge the quality of the synchronization; so when it makes subtitles worse, you don't know until you manually check them.
 
 Bottom line is that it works, just not sufficiently well.

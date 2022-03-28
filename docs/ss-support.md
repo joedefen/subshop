@@ -17,11 +17,11 @@ Shows a "search" result meaning:
 
 This command requires a search phrase built from the {targets}; for this subcommand {targets} cannot be files/folders and at least one term is required.
 
-If Plex is required, you may wish to compare/time searches with and without Plex (i.e., `-p` and `-P`).  Also, this command is handy if you wish to know where certain media is stored.
+If PLEX is required, you may wish to compare/time searches with and without Plex (i.e., `-p` and `-P`).  Also, this command is handy if you wish to know where certain media is stored.
 
-The search results are usually fairly similar **unless `subshop` and Plex do NOT search the same folders; to use Plex, ensure they agree.**
+The search results are usually fairly similar **unless `subshop` and PLEX do NOT search the same folders; to use PLEX, ensure they agree.**
 
-Search times will depend on many factors; but, the slower your disk performance, the more likely that Plex will perform better comparatively.
+Search times will depend on many factors; but, the slower your disk performance, the more likely that PLEX will perform better comparatively.
 
 ### subshop todo {targets} # create TODO lists for maintenance
 Creates lists of videos that need subtitles, need reference subtitles, or have poor fits suggesting that retrying is in order.  The commands that honor the `--todo` option will try to work down appropriate lists. The lists are named:

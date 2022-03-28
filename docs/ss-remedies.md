@@ -45,7 +45,7 @@ For tough problems,  rerun the sync: `subshop sync {target}`
 If still more clues are needed, especially if the point count is low, re-run the sync in verbose mode: `subshop sync -v {target}`. This shows the correlations between the installed and reference subtitles.
 
 * If the correlated phrases have "non-trite" agreement, you have the properly matched video and subtitles, and otherwise not and you may need to replace the video file
-* Notice the deltas; if there are huge "rifts" where the delta jumps by 10s or 100s of seconds, the video or subtitles may be flawed and need replacment.
+* Notice the deltas; if there are huge "rifts" where the delta jumps by 10s or 100s of seconds, the video or subtitles may be flawed and need replacement.
    
 ## D. When Internal Subtitles Fit Poorly
 If the video has poorly fit internal subs (which does happens), run `subshop dos -fi {target}` and choose 'EMBEDDED' from the list; the internal subtitles will be extracted and synced (now as external subtitles).
@@ -58,7 +58,7 @@ If subshop falls back to "undesired" subtitles when trying to replace them, then
 * Note that `subshop` will keep existing subtitles (which it calls the "fallback") if the new subs do not score sufficiently better than the existing.
 
 ## F. When Subtitles Need a Manual Time Shift
-For subtitle/language cases that `subshop` does not handle, (e.g., foreign audio with English subs), then many players allow shifting (i.e., delaying or advancing the subtitles by a constant shift). Using the best shift value that you can determine, apply that value for a permanent fix with `subshopt delay`.  See the `subshop delay` subcommand for details.
+For subtitle/language cases that `subshop` does not handle, (e.g., foreign audio with English subs), then many players allow shifting (i.e., delaying or advancing the subtitles by a constant shift). Using the best shift value that you can determine, apply that value for a permanent fix with `subshop delay`.  See the `subshop delay` subcommand for details.
 
 ## G. When There are too Many Annoying Ads
 If your ad filters are failing to remove annoying ads, then:

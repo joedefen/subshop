@@ -64,10 +64,10 @@ Reference subtitles are generated (and cached) by the external tool, [autosub](h
 ### Subtitle Score
 Subtitles are given a score from 1 to 19 that represents:
 
-* the tenths of seconds of standard deviation of the subtites to the reference, plus
+* the tenths of seconds of standard deviation of the subtitles to the reference, plus
 * a penalty of 0 to 20 if the number captions correlated to the reference subtitles is under 50
 
-If the net subtitle score is not between 1 and 19, then it is coereced within.  For filtering purposes, an unscored subtitle is given an arbitrary, large score (e.g., 100) but that score is not store.
+If the net subtitle score is not between 1 and 19, then it is coerced within.  For filtering purposes, an un-scored subtitle is given an arbitrary, large score (e.g., 100) but that score is not store.
 
 **Filtering on score.** Some sub-commands honor options:
 

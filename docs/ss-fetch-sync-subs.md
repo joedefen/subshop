@@ -1,4 +1,4 @@
-# SUBSHOP Subcommands for Featching and Syncing Subtitles
+# SUBSHOP Subcommands for Fetching and Syncing Subtitles
 
 ### subshop dos {targets}  # download-and-sync subtitles
 Download and sync subtitles for the targets. Requires (1) an English audio stream, (2) not in IGNORE state, (3) no internal or externals subs, (4) not a TV special, and (5) either interactive or not auto maintenance deferred.
@@ -14,8 +14,8 @@ The `dos` sub-command can be run rather indiscriminately because it restricts it
 Re-do the download and sync of subtitles for the targets; this is typically only done to correct automatic subtitle download and sync resulting in no found subtitles or misfit subtitles. Requires (1) an English audio stream, (2) not in IGNORE state, (3) has internal or externals subs.
 
 * `-i/--interactive`: for manual control over selecting the OMDB match and subtitles `(although normally, use the interactive mode to manually repair problems).
-* `-m/--min-score`: process only subtiles with at least the given minimum score
-* `-M/--max-score`: process only subtiles with no more than given maximum score
+* `-m/--min-score`: process only subtitles with at least the given minimum score
+* `-M/--max-score`: process only subtitles with no more than given maximum score
 * `--todo`: work down the TODO list (see "todo" subcommand) rather than {targets}
 
 Running `redos` interactively allows you to correct IMDB information and search differently for subtitles in the case automatic search results were poor.
@@ -48,7 +48,7 @@ Honored options include:
 * Avoid specifying multiple targets since the same delay will be applied to every target.
 * Ads will be removed again; if your ad detection parameters are changed, then more ads may be removed.
 * This command overwrites the subtitle file.
-* If you specify a positive delay, subtitles with negative times are removed and not reversable with another run with a negative delay.
+* If you specify a positive delay, subtitles with negative times are removed and not reversible with another run with a negative delay.
 
 ## subshop ref {targets} # generate reference subtitles
 Generates reference subtitles for the given targets ONLY if (1) the target has no reference subtitles, and (2) the target has external subtitles OR has no internal subtitles, (3) there is an English audio stream, and (4) the video is in the "IGNORE" state.
@@ -59,7 +59,7 @@ Generates reference subtitles for the given targets ONLY if (1) the target has n
 * `--todo`: work down the TODO list (see "todo" subcommand) rather than {targets}
 * `-d/--days`: only process videos newer than a given number of days
 
-Note, generating reference subtitles is usually a byproduct of `subshop dos`, but that might be limited by quota or outages and pre-generating the reference subtitles can speed the eventual download-and-sync operation whether done manually or in the backgrond.
+Note, generating reference subtitles is usually a byproduct of `subshop dos`, but that might be limited by quota or outages and pre-generating the reference subtitles can speed the eventual download-and-sync operation whether done manually or in the background.
 
 ### subshop grep {targets} # find patterns in subtitles
 Used to verify what ads would be removed if run on the current, external subtitles for the targeted videos, and optionally remove the matching subtitles.  With `-g`, you can specify an ad hoc pattern;  with `-G`, you can apply the configured regexes.  You can specify both `-g` and `-G`, and if you specify neither, then `-G` is assumed.

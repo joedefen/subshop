@@ -1,6 +1,6 @@
 # Subshop Reporting and Status Subcommands
 
-Herein, we describe commands to show and evaluate the current status of subtitle aquisition and synchronization, and controls on it automation.
+Herein, we describe commands to show and evaluate the current status of subtitle acquisition and synchronization, and controls on it automation.
 
 ### subshop stat {targets}  # get basic subtitle status
 Shows the summary subtitle information of the targets.

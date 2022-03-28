@@ -3,7 +3,7 @@ Herein we describe:
 
 * the expected organization of your video collection.
 * naming conventions for video files
-* the cached files that subshop creates to support substitles and their maintenance.
+* the cached files that subshop creates to support subtitles and their maintenance.
 
 ## File and Folder Organization Overview
 TV series and movies should be organized similar to this:
@@ -38,7 +38,7 @@ TV series and movies should be organized similar to this:
         Movie.Alpha.2020.anything.cache/ # subshop cache info
             omdbinfo.yaml # omdb is specific to one movie
             ...
-        Movie Beta (1999) anything/ # hierachical vs (above) flat
+        Movie Beta (1999) anything/ # hierarchical vs (above) flat
             Movie Beta (1999) anything.mkv # .ext may vary
             Movie Beta (1999) anything.en07.srt # .en07.srt may vary
             Movie Beta (1999) anything.cache/ # subshop cache info
