@@ -36,7 +36,10 @@ For tough problems,  rerun the sync: `subshop sync {target}`
 * Reported anomalies might help diagnose the problem.
 * Generally, you'll see a summary line like: `OK  dev 0.92s pts 131 [...]`. Take special note of:
     * `dev 0.92s` - meaning the standard deviation of the subtitle timing error is 0.92s.  Generally, errors over 0.8s are annoyingly bad.
-    * `pts 131` - the number of correlated subtitles between the reference subtitles and the installed subtitles.  The more the merrier, but under 50 or so becomes very concerning.
+    * `pts 131` - the number of correlated subtitles between the reference subtitles and the installed subtitles.
+        * The more the merrier, but under 50 or so becomes very concerning.
+        * If below the parameter, *sync-params/min-ref-pts*, then **no adjustments will be done to subtitles**.  In old versions, the parameter was erroneously hard coded at 100, but current recommendation is 40; quite possibly, even lower values will result in improved subs.
+
 * Very high 'dev' and/or very low 'pts' may indicate:
     * the subtitles are for a different video,
     * the video is misnamed or corrupt.

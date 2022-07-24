@@ -1,5 +1,15 @@
 # SUBSHOP
 Tools to download, remove ads, and synchronize subtitles.
+>**Quick Reference to Sub-documents (for existing users)**
+>* [Installation, Configuration, and Preparation](./docs/ss-install.md)
+>* [Video Organization for Subshop](./docs/ss-organization.md)
+>* Using the SUBSHOP Command
+>   * [Subshop Common Terms](./docs/ss-common-terms.md)
+>   * [Subshop Fetching/ Syncing Subs](./docs/ss-fetch-sync-subs.md)
+>   * [Subshop Reporting and Status](./docs/ss-status.md)
+>   * [Subshop Maintenance and Support](./docs/ss-support.md)
+>* [Remedying Missing/Misfit Subtitles](./docs/ss-remedies.md)
+>* [Theories of Operation](./docs/ss-theory.md)
 
 ### Purpose
 `subshop`, or "Subtitle Workshop", is a set of subtitle tools intended to mostly automate:

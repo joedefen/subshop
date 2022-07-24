@@ -65,7 +65,7 @@ SUBSHOP_TEMPLATE=r'''
   - min-rate: 0.10 # min required rate change (%)
   - min-dev: 350 # min required rate change (ms)
   - min-offset: 100 # min required offset (ms)
-  - min-ref-pts: 100 # minimum number of points
+  - min-ref-pts: 40 # minimum number of points
 - phrase-params: !!omap # phrase complexity tuning params
   - min_word_len: 5 # match phrase must have word of this length
   - min_str_len: 8 # match phrase string length must be this long

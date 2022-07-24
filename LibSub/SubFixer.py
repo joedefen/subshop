@@ -715,6 +715,8 @@ class CaptionListAnalyzer(CaptionList):
         whynot = self.best_linear_fit(ref_caplist, 'unadjusted', verbosity)
         best_lri = self.lri
         devs[0] = int(round(best_lri.stdev)) if best_lri else 100000
+        if whynot:
+            lg.pr(f'----> NOTE: Cannot linear adj: {whynot}')
 
         if self.formulas and len(self.xmcaps) >= lims.min_ref_pts and (
                 abs(best_lri.intercept) >= lims.min_offset
@@ -856,7 +858,7 @@ class CaptionListAnalyzer(CaptionList):
             whynot = f'offset-too-big (abs({lri.intercept})>{lims.max_offset})'
         elif lri.stdev > lims.max_dev:
             whynot = f'dev-too-big ({lri.stdev}>{lims.max_dev})'
-        elif self.point_cnt < 100:
+        elif self.point_cnt < lims.min_ref_pts:
             whynot = f'two-few-points({self.point_cnt}<{lims.min_ref_pts})'
         if whynot:   # too bad to try
             return f'FAILED: analysis [{whynot}]'
